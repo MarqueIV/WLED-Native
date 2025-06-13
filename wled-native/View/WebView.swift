@@ -1,6 +1,6 @@
 
 import SwiftUI
-import WebKit
+@preconcurrency import WebKit
 
 struct WebView: UIViewRepresentable {
     
@@ -53,7 +53,7 @@ struct WebView: UIViewRepresentable {
         
         func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
             let langStr = {
-                switch Locale.current.languageCode {
+                switch Locale.current.language.languageCode?.identifier {
                 case "fr":
                     return "fr"
                 default:
