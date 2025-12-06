@@ -42,14 +42,19 @@
         </uniquenessConstraints>
     </entity>
     <entity name="Device2" representedClassName="Device2" syncable="YES" codeGenerationType="class">
-        <attribute name="address" optional="YES" attributeType="String"/>
+        <attribute name="address" attributeType="String"/>
         <attribute name="branch" optional="YES" attributeType="String"/>
         <attribute name="customName" optional="YES" attributeType="String"/>
         <attribute name="isHidden" optional="YES" attributeType="Boolean" usesScalarValueType="YES"/>
         <attribute name="lastSeen" optional="YES" attributeType="Integer 64" defaultValueString="0" usesScalarValueType="YES"/>
-        <attribute name="macAddress" optional="YES" attributeType="String"/>
+        <attribute name="macAddress" attributeType="String"/>
         <attribute name="originalName" optional="YES" attributeType="String"/>
         <attribute name="skipUpdateTag" optional="YES" attributeType="String"/>
+        <uniquenessConstraints>
+            <uniquenessConstraint>
+                <constraint value="macAddress"/>
+            </uniquenessConstraint>
+        </uniquenessConstraints>
     </entity>
     <entity name="Version" representedClassName="Version" syncable="YES" codeGenerationType="class">
         <attribute name="htmlUrl" optional="YES" attributeType="String"/>

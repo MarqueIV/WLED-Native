@@ -132,6 +132,7 @@
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		8872E0862EE4BBE900A9F4DE /* Websocket */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Websocket; sourceTree = "<group>"; };
+		8872E08D2EE4BEFB00A9F4DE /* ViewModel */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = ViewModel; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -255,6 +256,7 @@
 		C9A9E5BF2918D1C3005B5C22 /* wled */ = {
 			isa = PBXGroup;
 			children = (
+				8872E08D2EE4BEFB00A9F4DE /* ViewModel */,
 				C9865AF42AEF18E7000B2714 /* View */,
 				C9FCC37E293DAF8300DEDDEA /* Service */,
 				C96BF3F7291FFDC90011BC3B /* Model */,
@@ -318,6 +320,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				8872E0862EE4BBE900A9F4DE /* Websocket */,
+				8872E08D2EE4BEFB00A9F4DE /* ViewModel */,
 			);
 			name = WLED;
 			packageProductDependencies = (
