@@ -101,13 +101,17 @@ class DeviceUpdateService {
     ///
     /// - Parameter assetName: The exact filename to look for (e.g., "WLED_0.14.0_ESP32.bin").
     /// - Returns: `true` if the asset was found, `false` otherwise.
-    func findAsset(assetName: String) -> Bool {
+    private func findAsset(assetName: String) -> Bool {
         if let foundAsset = (version.assets as? Set<Asset>)?.first(where: { $0.name == assetName}) {
             self.asset = foundAsset
             couldDetermineAsset = true
             return true
         }
         return false
+    }
+    
+    func getAssetName() -> String {
+        return assetName
     }
     
     // MARK: - Asset Management

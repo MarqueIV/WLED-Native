@@ -108,7 +108,7 @@ struct DeviceUpdateInstalling: View {
     
     private func startUpdate() {
         let updateService = DeviceUpdateService(device: device, version: version, context: viewContext)
-        versionName = updateService.getVersionWithPlatformName()
+        versionName = updateService.getAssetName()
         if (!updateService.couldDetermineAsset) {
             status = .failed
             statusString = String(localized: "No Compatible Version Found")
