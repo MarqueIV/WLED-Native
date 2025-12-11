@@ -15,14 +15,6 @@ extension Device {
         let blue = Int64(Double(colorInfo![2]) + 0.5)
         return (red << 16) | (green << 8) | blue
     }
-    
-    func setStateValues(state: WledState) {
-        isOnline = true
-        brightness = state.brightness
-        isPoweredOn = state.isOn
-        isRefreshing = false
-        color = getColor(state: state)
-    }
 }
 
 extension Device: Observable { }

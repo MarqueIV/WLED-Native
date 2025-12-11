@@ -13,11 +13,11 @@ enum WebsocketStatus {
 
 class DeviceWithState: ObservableObject, Identifiable {
     
-    @Published var device: Device2
+    @Published var device: Device
     @Published var stateInfo: DeviceStateInfo? = nil
     @Published var websocketStatus: WebsocketStatus = .disconnected
     
-    init(initialDevice: Device2) {
+    init(initialDevice: Device) {
         self.device = initialDevice
     }
     
@@ -54,12 +54,12 @@ extension DeviceWithState: Hashable {
 
 /**
  * Get a DeviceWithState that can be used to represent a temporary WLED device in AP mode.
- * Note: Since Device2 is a Core Data entity, we need a context to create it.
+ * Note: Since Device is a Core Data entity, we need a context to create it.
  */
 func getApModeDeviceWithState(context: NSManagedObjectContext) -> DeviceWithState {
-    // Create a new Device2 entity
+    // Create a new Device entity
     // We assume this is transient and might not be saved to the persistent store immediately
-    let device = Device2(context: context)
+    let device = Device(context: context)
     device.macAddress = AP_MODE_MAC_ADDRESS
     device.address = "4.3.2.1"
     

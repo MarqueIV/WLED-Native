@@ -1,8 +1,12 @@
 import Foundation
 import CoreData
 
+/// Service responsible for identifying, downloading, and installing firmware updates for WLED devices.
 class DeviceUpdateService {
     
+    // MARK: - Properties
+    
+    /// List of platforms supported by the legacy update method.
     let supportedPlatforms = [
         "esp01",
         "esp02",
@@ -10,20 +14,40 @@ class DeviceUpdateService {
         "esp8266",
     ]
     
-    let device: Device
+    let device: DeviceWithState
     let version: Version
     let context: NSManagedObjectContext
-    
-    private(set) var couldDetermineAsset = false
-    private var asset: Asset? = nil
     var githubApi: GithubApi?
     
-    init(device: Device, version: Version, context: NSManagedObjectContext) {
+    private var assetName: String = ""
+    private(set) var couldDetermineAsset = false
+    private var asset: Asset? = nil
+    
+    // MARK: - Initialization
+    
+    /// Initializes the update service and immediately attempts to determine the correct binary asset.
+    ///
+    /// - Parameters:
+    ///   - device: The WLED device to update.
+    ///   - version: The target firmware version.
+    ///   - context: The Core Data context.
+    init(device: DeviceWithState, version: Version, context: NSManagedObjectContext) {
         self.device = device
         self.version = version
         self.context = context
+        
+        // Try to use the release variable, but fallback to the legacy platform method for
+        // compatibility with WLED older than 0.15.0
+        if (!determineAssetByRelease()) {
+            determineAssetByPlatform()
+        }
     }
     
+    // MARK: - API Management
+    
+    /// Returns the existing GitHub API instance or creates a new one if it doesn't exist.
+    ///
+    /// - Returns: An instance of `GithubApi`.
     func getGithubApi() -> GithubApi {
         if let githubApi = self.githubApi {
             return githubApi
@@ -33,38 +57,71 @@ class DeviceUpdateService {
         return newApi
     }
     
-    func getVersionWithPlatformName() -> String {
-        let ethernetVariant = device.isEthernet ? "_Ethernet" : ""
-        var versionTagName = version.tagName ?? "v0"
-        versionTagName.remove(at: versionTagName.startIndex)
-        return "WLED_\(versionTagName)_\(device.platformName?.uppercased() ?? "")\(ethernetVariant).bin"
-    }
+    // MARK: - Asset Determination Strategies
     
-    func determineAsset() {
-        guard supportedPlatforms.contains(device.platformName ?? "") else {
-            return
-        }
-        guard let assets = version.assets else {
-            return
+    /// Determines the asset to download based on the `release` variable in the device info.
+    ///
+    /// This is the preferred method and is typically available on WLED devices running version 0.15.0 or newer.
+    ///
+    /// - Returns: `true` if the asset name was determined and found; otherwise `false`.
+    private func determineAssetByRelease() -> Bool {
+        guard let release = device.stateInfo?.info.release,
+              !release.isEmpty,
+              let tagName = version.tagName else {
+            return false
         }
         
-        let assetName = getVersionWithPlatformName()
-        for assetObject in assets {
-            if let asset = assetObject as? Asset {
-                if asset.name != assetName {
-                    continue;
-                }
-                self.asset = asset
-                couldDetermineAsset = true
-                return
-            }
-        }
+        let combined = "\(tagName)_\(release)"
+        let versionWithRelease = combined.lowercased().hasPrefix("v")
+        ? String(combined.dropFirst())
+        : combined
+        
+        self.assetName = "WLED_\(versionWithRelease).bin"
+        return findAsset(assetName: assetName)
     }
     
+    /// Determines the asset to download based on the device platform (e.g., esp32).
+    ///
+    /// This is a legacy method used for backwards compatibility with WLED devices older than 0.15.0.
+    private func determineAssetByPlatform() {
+        guard let deviceInfo = device.stateInfo?.info,
+              let platformName = deviceInfo.platformName,
+              let tagName = version.tagName,
+              supportedPlatforms.contains(platformName) else {
+            return
+        }
+        let combined = "\(tagName)_\(platformName.uppercased())"
+        
+        let versionWithPlatform = combined.lowercased().hasPrefix("v") ? String(combined.dropFirst()) : combined
+        self.assetName = "WLED_\(versionWithPlatform).bin"
+        _ = findAsset(assetName: assetName)
+    }
+    
+    /// Searches the `Version`'s assets for a specific filename.
+    ///
+    /// - Parameter assetName: The exact filename to look for (e.g., "WLED_0.14.0_ESP32.bin").
+    /// - Returns: `true` if the asset was found, `false` otherwise.
+    func findAsset(assetName: String) -> Bool {
+        if let foundAsset = (version.assets as? Set<Asset>)?.first(where: { $0.name == assetName}) {
+            self.asset = foundAsset
+            couldDetermineAsset = true
+            return true
+        }
+        return false
+    }
+    
+    // MARK: - Asset Management
+    
+    /// Retrieves the determined asset object, if any.
+    ///
+    /// - Returns: The `Asset` object or `nil` if not determined.
     func getVersionAsset() -> Asset? {
         return asset
     }
     
+    /// Checks if the binary file for the determined asset is already saved locally.
+    ///
+    /// - Returns: `true` if the file exists on the disk, `false` otherwise.
     func isAssetFileCached() -> Bool {
         guard let binaryPath = getPathForAsset() else {
             return false
@@ -72,6 +129,9 @@ class DeviceUpdateService {
         return FileManager.default.fileExists(atPath: binaryPath.path)
     }
     
+    /// Downloads the firmware binary from GitHub and saves it to the local cache.
+    ///
+    /// - Returns: `true` if the download succeeded, `false` otherwise.
     func downloadBinary() async -> Bool {
         guard let asset = asset else {
             return false
@@ -79,17 +139,24 @@ class DeviceUpdateService {
         guard let localUrl = getPathForAsset() else {
             return false
         }
-
+        
         return await getGithubApi().downloadReleaseBinary(asset: asset, targetFile: localUrl)
     }
     
+    // MARK: - Installation
+    
+    /// Initiates the firmware update process on the device using the downloaded binary.
+    ///
+    /// - Parameters:
+    ///   - onCompletion: Closure called when the update completes successfully.
+    ///   - onFailure: Closure called if the update fails or the binary cannot be found.
     func installUpdate(onCompletion: @escaping () -> (), onFailure: @escaping () -> ()) {
         guard let binaryPath = getPathForAsset() else {
             onFailure()
             return
         }
         Task {
-            await device.requestManager.addRequest(WLEDSoftwareUpdateRequest(
+            await device.device.requestManager.addRequest(WLEDSoftwareUpdateRequest(
                 context: context,
                 binaryFile: binaryPath,
                 onCompletion: onCompletion,
@@ -98,6 +165,13 @@ class DeviceUpdateService {
         }
     }
     
+    // MARK: - File System Helpers
+    
+    /// Constructs the local file URL for where the asset should be stored.
+    ///
+    /// Structure: `.../Library/Caches/[tagName]/[assetName]`
+    ///
+    /// - Returns: The full `URL` to the file, or `nil` if the directory could not be created.
     func getPathForAsset() -> URL? {
         guard let cacheUrl = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else {
             return nil

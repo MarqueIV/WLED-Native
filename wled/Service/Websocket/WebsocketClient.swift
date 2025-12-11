@@ -31,7 +31,7 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     
     // MARK: - Initialization
     
-    init(device: Device2, context: NSManagedObjectContext) {
+    init(device: Device, context: NSManagedObjectContext) {
         self.deviceState = DeviceWithState(initialDevice: device)
         self.context = context
         

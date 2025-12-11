@@ -19,7 +19,7 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     // MARK: - Private Properties
     
     private let context: NSManagedObjectContext
-    private var frc: NSFetchedResultsController<Device2>!
+    private var frc: NSFetchedResultsController<Device>!
     
     // Map of MacAddress -> Client Wrapper
     // We store the last known address to detect IP changes
@@ -53,7 +53,7 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     // MARK: - Core Data Setup
     
     private func setupFetchedResultsController() {
-        let request = NSFetchRequest<Device2>(entityName: "Device2")
+        let request = NSFetchRequest<Device>(entityName: "Device")
         // Sort by lastSeen or name as a default
         request.sortDescriptors = [NSSortDescriptor(key: "lastSeen", ascending: false)]
         
@@ -68,8 +68,8 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     
     // MARK: - Client Management Logic
     
-    private func updateClients(with devices: [Device2]) {
-        let newDeviceMap = Dictionary(uniqueKeysWithValues: devices.compactMap { device -> (String, Device2)? in
+    private func updateClients(with devices: [Device]) {
+        let newDeviceMap = Dictionary(uniqueKeysWithValues: devices.compactMap { device -> (String, Device)? in
             guard let mac = device.macAddress else { return nil }
             return (mac, device)
         })
@@ -109,7 +109,7 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
         publishState()
     }
     
-    private func createAndAddClient(for device: Device2, mac: String) {
+    private func createAndAddClient(for device: Device, mac: String) {
         let newClient = WebsocketClient(device: device, context: context)
         
         if !isPaused {
@@ -134,7 +134,7 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     // MARK: - NSFetchedResultsControllerDelegate
     
     func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
-        guard let devices = controller.fetchedObjects as? [Device2] else { return }
+        guard let devices = controller.fetchedObjects as? [Device] else { return }
         updateClients(with: devices)
     }
     
@@ -185,7 +185,7 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
         wrapper.client.sendState(state)
     }
     
-    func deleteDevice(_ device: Device2) {
+    func deleteDevice(_ device: Device) {
         print("[ListVM] Deleting device \(device.originalName ?? "")")
         context.perform {
             self.context.delete(device)

@@ -108,7 +108,6 @@ struct DeviceUpdateInstalling: View {
     
     private func startUpdate() {
         let updateService = DeviceUpdateService(device: device, version: version, context: viewContext)
-        updateService.determineAsset()
         versionName = updateService.getVersionWithPlatformName()
         if (!updateService.couldDetermineAsset) {
             status = .failed
