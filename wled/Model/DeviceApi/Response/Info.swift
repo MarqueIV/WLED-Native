@@ -58,7 +58,7 @@ struct Info: Decodable {
         case udpPort = "udpport"
         case simplifiedUI = "simplifiedui"
         case isUpdatedLive = "live"
-        case liveseq = "liveseq"
+        case liveSegment = "liveseg"
         case realtimeMode = "lm"
         case realtimeIp = "lip"
         case websocketClientCount = "ws"
