@@ -107,3 +107,5 @@ iOSInjectionProject/
 
 .DS_STORE
 wled/Secrets.xcconfig
+
+.idea/
