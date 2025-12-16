@@ -225,7 +225,7 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     
     /// Sends a State object to the device.
     /// Note: Kotlin code used `State` class. In Swift, assuming `WLEDStateChange` or `WledState` is the equivalent Encodable struct.
-    func sendState(_ state: WLEDStateChange) {
+    func sendState(_ state: WledState) {
         if deviceState.websocketStatus != .connected {
             print("\(tag): Not connected to \(deviceState.device.address ?? ""), reconnecting...")
             connect()

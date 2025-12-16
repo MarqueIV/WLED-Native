@@ -8,7 +8,7 @@ struct DeviceUpdateInstalling: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode
     
-    @EnvironmentObject var device: Device
+    @EnvironmentObject var device: DeviceWithState
     @ObservedObject var version: Version
     
     @State var offset: CGFloat = 1000
@@ -22,7 +22,7 @@ struct DeviceUpdateInstalling: View {
         ZStack {
             Color(.clear)
             VStack {
-                Text("Updating \(device.name ?? "(New Device)")")
+                Text("Updating \(device.device.displayName)")
                     .font(.title2)
                     .bold()
                     .padding(.top)
@@ -149,12 +149,6 @@ struct DeviceUpdateInstalling: View {
         status = .success
         statusString = String(localized: "Update Completed!")
         statusDetailsString = ""
-        
-        Task {
-            // Wait 3 seconds before sending a refresh request
-            try await Task.sleep(nanoseconds: UInt64(3 * Double(NSEC_PER_SEC)))
-            await device.requestManager.addRequest(WLEDRefreshRequest(context: viewContext))
-        }
     }
     
     private func onInstallFailed() {
@@ -176,12 +170,13 @@ struct DeviceUpdateInstalling_Previews: PreviewProvider {
     static let device = Device(context: PersistenceController.preview.container.viewContext)
     
     static var previews: some View {
-        device.tag = UUID()
-        device.version = "0.13.0"
-        device.latestUpdateVersionTagAvailable = "v0.14.0"
-        device.isEthernet = false
-        device.platformName = "esp32"
-        
+        device.macAddress = UUID().uuidString
+        // TODO: #statelessDevice migration fix preview
+        // device.version = "0.13.0"
+        // device.latestUpdateVersionTagAvailable = "v0.14.0"
+        // device.isEthernet = false
+        // device.platformName = "esp32"
+
         let version = Version(context: PersistenceController.preview.container.viewContext)
         version.tagName = "v0.14.0"
         

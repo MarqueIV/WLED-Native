@@ -160,12 +160,7 @@ class DeviceUpdateService {
             return
         }
         Task {
-            await device.device.requestManager.addRequest(WLEDSoftwareUpdateRequest(
-                context: context,
-                binaryFile: binaryPath,
-                onCompletion: onCompletion,
-                onFailure: onFailure
-            ))
+            // TODO: Fix device update after migration #statelessDevice
         }
     }
     

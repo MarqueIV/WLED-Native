@@ -33,7 +33,7 @@ struct DeviceView: View {
                 }
             }
         }
-        .navigationTitle(getDeviceName())
+        .navigationTitle(device.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
     }
@@ -69,29 +69,22 @@ struct DeviceView: View {
     }
     
     func getToolbarBadgeCount() -> Int {
-        return (device.latestUpdateVersionTagAvailable ?? "").isEmpty ? 0 : 1
-    }
-    
-    private func getDeviceName() -> String {
-        guard let name = device.name, !name.isEmpty else {
-            return String(localized: "(New Device)")
-        }
-        return name
+        // TODO: #statelessDevice migration fix update available badge
+        // return (device.latestUpdateVersionTagAvailable ?? "").isEmpty ? 0 : 1
+        return 0
     }
 }
 
 struct DeviceView_Previews: PreviewProvider {
-    static let device = Device(context: PersistenceController.preview.container.viewContext)
+    static let device = Device(
+        context: PersistenceController.preview.container.viewContext
+    )
     
     static var previews: some View {
-        device.tag = UUID()
-        device.name = ""
+        device.macAddress = UUID().uuidString
+        device.originalName = "A fancy device"
         device.address = "google.com"
-        device.isOnline = true
-        device.networkRssi = -80
-        device.color = 6244567779
-        device.brightness = 125
-        
+        // TODO: #statelessDevice fix this preview after the migration
         return NavigationView{
             DeviceView()
                 .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)

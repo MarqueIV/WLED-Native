@@ -6,8 +6,8 @@ import MarkdownUI
 struct DeviceUpdateDetails: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var device: Device
-    
+    @EnvironmentObject var device: DeviceWithState
+
     @State var showWarningDialog = false
     @State var showInstallingDialog = false
     
@@ -56,13 +56,15 @@ struct DeviceUpdateDetails: View {
             dismiss()
         }
         .onAppear() {
-            versionViewModel.loadVersion(device.latestUpdateVersionTagAvailable ?? "", context: viewContext)
+            // TODO: #statelessDevice migration fix update details
+            //versionViewModel.loadVersion(device.latestUpdateVersionTagAvailable ?? "", context: viewContext)
         }
     }
     
     func skipVersion() {
-        device.skipUpdateTag = device.latestUpdateVersionTagAvailable
-        device.latestUpdateVersionTagAvailable = ""
+        // TODO: #statelessDevice migration fix skipVersion
+        device.device.skipUpdateTag = "something" // device.latestUpdateVersionTagAvailable
+        //device.latestUpdateVersionTagAvailable = ""
         do {
             try viewContext.save()
         } catch {
@@ -85,11 +87,12 @@ struct DeviceUpdateDetails_Previews: PreviewProvider {
     static let device = Device(context: PersistenceController.preview.container.viewContext)
     
     static var previews: some View {
-        device.tag = UUID()
-        device.version = "0.13.0"
-        device.latestUpdateVersionTagAvailable = "v0.14.0"
-        device.isOnline = true
-        
+        // TODO: #statelessDevice migration fix preview
+        device.macAddress = UUID().uuidString
+        //device.version = "0.13.0"
+        //device.latestUpdateVersionTagAvailable = "v0.14.0"
+        //device.isOnline = true
+
         
         return NavigationView{
             DeviceUpdateDetails()

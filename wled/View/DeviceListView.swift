@@ -15,7 +15,7 @@ struct DeviceListViewFabric {
 struct DeviceListView: View {
     
     private static let sort = [
-        SortDescriptor(\Device.name, comparator: .localized, order: .forward)
+        SortDescriptor(\Device.displayName, comparator: .localized, order: .forward)
     ]
     
     @Environment(\.managedObjectContext) private var viewContext
@@ -173,7 +173,6 @@ struct DeviceListView: View {
     private func refreshList() async {
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await discoveryService.scan() }
-            group.addTask { await refreshDevices() }
         }
     }
     
@@ -196,7 +195,6 @@ struct DeviceListView: View {
             Task {
                 print("auto-refreshing")
                 await refreshList()
-                await refreshDevices()
             }
         }
         discoveryService.scan()
@@ -204,27 +202,6 @@ struct DeviceListView: View {
     
     private func disappearAction() {
         timer?.invalidate()
-    }
-    
-    @Sendable
-    private func refreshDevices() async {
-        await withTaskGroup(of: Void.self) { group in
-            devices.forEach { refreshDevice(device: $0, group: &group) }
-            devicesOffline.forEach { refreshDevice(device: $0, group: &group) }
-        }
-    }
-    
-    private func refreshDevice(device: Device, group: inout TaskGroup<Void>) {
-        // Don't start a refresh request when the device is not done refreshing.
-        if (!device.isRefreshing) {
-            return
-        }
-        group.addTask {
-            await self.viewContext.performAndWait {
-                device.isRefreshing = true
-            }
-            await device.requestManager.addRequest(WLEDRefreshRequest(context: viewContext))
-        }
     }
     
     private func deleteItems(device: Device) {

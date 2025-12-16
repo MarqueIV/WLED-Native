@@ -166,11 +166,7 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
             print("[ListVM] No active client for \(deviceWrapper.device.macAddress ?? "nil")")
             return
         }
-        
-        // Assuming WLEDStateChange is your Codable struct for JSON API
-        var state = WLEDStateChange()
-        state.brightness = Int64(brightness)
-        wrapper.client.sendState(state)
+        wrapper.client.sendState(WledState(brightness: Int64(brightness)))
     }
     
     func setDevicePower(for deviceWrapper: DeviceWithState, isOn: Bool) {
@@ -179,10 +175,7 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
             print("[ListVM] No active client for \(deviceWrapper.device.macAddress ?? "nil")")
             return
         }
-        
-        var state = WLEDStateChange()
-        state.isOn = isOn
-        wrapper.client.sendState(state)
+        wrapper.client.sendState(WledState(isOn: isOn))
     }
     
     func deleteDevice(_ device: Device) {

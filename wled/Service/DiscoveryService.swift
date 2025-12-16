@@ -69,15 +69,14 @@ class DiscoveryService: NSObject, Identifiable {
             if (doesDeviceAlreadyExists(host: host, viewContext: viewContext)) {
                 return
             }
+            // TODO: Fix migration here to use stateless device
             // TODO: Add mac address checkup like on Android for ip changes
             let newDevice = Device(context: viewContext)
-            newDevice.tag = UUID()
-            newDevice.name = name
+            // TODO: Don't add a mac address by UUID. Load it from the device with a FirstContactService like Android
+            newDevice.macAddress = UUID().uuidString
+            newDevice.customName = name
             newDevice.address = host
             newDevice.isHidden = false
-            Task {
-                await newDevice.requestManager.addRequest(WLEDRefreshRequest(context: viewContext))
-            }
         }
     }
     

@@ -4,7 +4,7 @@ import SwiftUI
 struct DeviceEditView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var device: Device
+    @EnvironmentObject var device: DeviceWithState
     
     enum Field {
         case name
@@ -38,15 +38,7 @@ struct DeviceEditView: View {
                     .textFieldStyle(RoundedBorderTextFieldStyle())
                     .onChange(of: isNameFieldFocused) { isFocused in
                         if (!isFocused) {
-                            let wasCustomName = device.isCustomName
-                            if (!customName.isEmpty) {
-                                device.name = customName
-                            } else if (wasCustomName) {
-                                // If we used to have a custom name and we no longer have one,
-                                // clear the custom name so the normal name can be picked up later
-                                device.name = ""
-                            }
-                            device.isCustomName = !customName.isEmpty
+                            device.device.customName = customName
                             saveDevice()
                         }
                     }
@@ -54,7 +46,7 @@ struct DeviceEditView: View {
             
             Toggle("Hide this Device", isOn: $hideDevice)
                 .onChange(of: hideDevice) { newValue in
-                    device.isHidden = newValue
+                    device.device.isHidden = newValue
                     saveDevice()
                 }
                 .padding(.trailing, 2)
@@ -73,11 +65,11 @@ struct DeviceEditView: View {
                 .fixedSize()
                 .onChange(of: branch) { newValue in
                     let newBranch = newValue == "Beta" ? Branch.beta : Branch.stable
-                    if newBranch == device.branchValue {
+                    if newBranch == device.device.branchValue {
                         return
                     }
-                    device.branchValue = newBranch
-                    device.latestUpdateVersionTagAvailable = ""
+                    device.device.branchValue = newBranch
+                    device.device.skipUpdateTag = ""
                     saveDevice()
                     Task {
                         await checkForUpdate()
@@ -87,9 +79,11 @@ struct DeviceEditView: View {
             .padding(.bottom)
             
             VStack(alignment: .leading) {
-                if ((device.latestUpdateVersionTagAvailable ?? "").isEmpty) {
+                // TODO: #statelessDevice migration fix update available
+                if ((/*device.latestUpdateVersionTagAvailable ?? */"").isEmpty) {
                     Text("Your device is up to date")
-                    Text("Version \(device.version ?? unknownVersion)")
+                    // TODO: #statelessDevice migration fix update available
+                    Text("Version \(/*device.device.version ?? */unknownVersion)")
                     HStack {
                         Button(action: {
                             Task {
@@ -113,7 +107,8 @@ struct DeviceEditView: View {
                             .padding(.trailing)
                         VStack(alignment: .leading) {
                             Text("Update Available")
-                            Text("From \(device.version ?? unknownVersion) to \(device.latestUpdateVersionTagAvailable ?? unknownVersion)")
+                            // TODO: #statelessDevice migration fix update available
+                            Text("From \(/*device.version ?? */unknownVersion) to \(/*device.latestUpdateVersionTagAvailable ??*/ unknownVersion)")
                             NavigationLink {
                                 DeviceUpdateDetails()
                                     .environmentObject(device)
@@ -136,15 +131,14 @@ struct DeviceEditView: View {
         .navigationTitle("Edit Device")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear() {
-            address = device.address ?? ""
-            customName = device.isCustomName ? (self.device.name ?? "") : ""
-            hideDevice = device.isHidden
-            branch = device.branchValue == Branch.beta ? "Beta" : "Stable"
+            address = device.device.address ?? ""
+            customName = device.device.customName ?? ""
+            hideDevice = device.device.isHidden
+            branch = device.device.branchValue == Branch.beta ? "Beta" : "Stable"
         }
     }
     
     private func saveDevice() {
-        device.isRefreshing = false
         do {
             try viewContext.save()
         } catch {
@@ -163,10 +157,11 @@ struct DeviceEditView: View {
         await ReleaseService(context: viewContext).refreshVersions()
         UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: WLEDNativeApp.dateLastUpdateKey)
         
-        device.skipUpdateTag = ""
+        device.device.skipUpdateTag = ""
         withAnimation {
             Task {
-                await device.requestManager.addRequest(WLEDRefreshRequest(context: viewContext))
+                // TODO: #statelessDevice migration fix this?
+                // await device.requestManager.addRequest(WLEDRefreshRequest(context: viewContext))
             }
             isCheckingForUpdates = false
         }
@@ -185,13 +180,11 @@ struct DeviceEditView_Previews: PreviewProvider {
     static let device = Device(context: PersistenceController.preview.container.viewContext)
     
     static var previews: some View {
-        device.tag = UUID()
-        device.name = "A custom name"
-        device.isCustomName = true
+        device.macAddress = UUID().uuidString
+        device.originalName = "Original name"
+        device.customName = "A custom name"
         device.address = "192.168.11.101"
         device.isHidden = true
-        device.version = "1.2.3"
-        device.latestUpdateVersionTagAvailable = "v1.2.4"
         
         
         return DeviceEditView()
