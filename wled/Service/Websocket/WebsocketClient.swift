@@ -4,6 +4,7 @@ import Combine
 
 // TODO: This class was auto-converted from Kotlin using an AI, it needs to be verified.
 
+@MainActor
 class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     
     // MARK: - Properties
@@ -13,8 +14,9 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     
     private let context: NSManagedObjectContext
     private var webSocketTask: URLSessionWebSocketTask?
-    private let session: URLSession
-    
+    nonisolated let urlSession: URLSession
+    private let delegateProxy: WeakSessionDelegate
+
     // State flags
     private var isManuallyDisconnected = false
     private var isConnecting = false
@@ -34,27 +36,21 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     init(device: Device, context: NSManagedObjectContext) {
         self.deviceState = DeviceWithState(initialDevice: device)
         self.context = context
-        
-        // Create a session configuration
-        let config = URLSessionConfiguration.default
-        // Create the session. We set 'self' as delegate to handle open/close events
-        self.session = URLSession(configuration: config, delegate: nil, delegateQueue: OperationQueue())
-        
+
+        let proxy = WeakSessionDelegate()
+        self.delegateProxy = proxy
+        self.urlSession = URLSession(
+            configuration: .default,
+            delegate: proxy,
+            delegateQueue: OperationQueue.main
+        )
+
         super.init()
-        
-        // We need to set the delegate after super.init, but session is immutable.
-        // URLSession(configuration:delegate:delegateQueue:) works, but we need to pass 'self'.
-        // To strictly satisfy Swift init rules, we often use a lazy var or configure a separate session coordinator.
-        // However, for this implementation, we will assign the delegate via the session creation if possible or just rely on the task callbacks for errors and completion.
-        // Note: URLSession holds a strong reference to delegate, so be careful with retain cycles if not careful.
-        // Re-creating the session to set the delegate:
+
+        // Now that 'self' is fully initialized, connect the delegate
+        self.delegateProxy.delegate = self
     }
-    
-    // Lazy session loader to allow 'self' as delegate
-    private lazy var urlSession: URLSession = {
-        return URLSession(configuration: .default, delegate: self, delegateQueue: OperationQueue())
-    }()
-    
+
     // MARK: - Connection Logic
     
     func connect() {
@@ -107,17 +103,15 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     private func reconnect() {
         if isManuallyDisconnected || isConnecting { return }
         
-        let delayTime = min(
-            reconnectionDelay * pow(2.0, Double(retryCount)),
-            maxReconnectionDelay
-        )
-        
+        let delayTime = min(reconnectionDelay * pow(2.0, Double(retryCount)), maxReconnectionDelay)
         print("\(tag): Reconnecting to \(deviceState.device.address ?? "") in \(delayTime)s")
         
-        DispatchQueue.global().asyncAfter(deadline: .now() + delayTime) { [weak self] in
-            guard let self = self else { return }
-            self.retryCount += 1
-            self.connect()
+        Task {
+            try? await Task.sleep(nanoseconds: UInt64(delayTime * 1_000_000_000))
+            if !isManuallyDisconnected && !isConnecting {
+                self.retryCount += 1
+                self.connect()
+            }
         }
     }
     
@@ -125,33 +119,34 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     
     private func listen() {
         webSocketTask?.receive { [weak self] result in
-            guard let self = self else { return }
-            
-            switch result {
-            case .failure(let error):
-                self.handleFailure(error)
-            case .success(let message):
-                switch message {
-                case .string(let text):
-                    self.handleMessage(text)
-                case .data(let data):
-                    // WLED mostly sends text, but good to handle data
-                    if let text = String(data: data, encoding: .utf8) {
-                        self.handleMessage(text)
+            Task {
+                guard let self = self else { return }
+
+                switch result {
+                case .failure(let error):
+                    await self.handleFailure(error)
+                case .success(let message):
+                    switch message {
+                    case .string(let text):
+                        await self.handleMessage(text)
+                    case .data(let data):
+                        // WLED mostly sends text, but good to handle data
+                        if let text = String(data: data, encoding: .utf8) {
+                            await self.handleMessage(text)
+                        }
+                    @unknown default:
+                        break
                     }
-                @unknown default:
-                    break
+
+                    // Recursively listen for the next message
+                    await self.listen()
                 }
-                
-                // Recursively listen for the next message
-                self.listen()
             }
         }
     }
     
     private func handleMessage(_ text: String) {
         // print("\(tag): onMessage: \(text)") // Uncomment for verbose logging
-        
         guard let data = text.data(using: .utf8) else { return }
         
         do {
@@ -177,33 +172,34 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     }
     
     private func updateDeviceEntity(with info: DeviceStateInfo) {
+        let deviceID = self.deviceState.device.objectID
+        let newName = info.info.name
+        let newVersion = info.info.version ?? ""
+
         context.perform { [weak self] in
             guard let self = self else { return }
-            let device = self.deviceState.device
-            
-            // Branch detection logic
+            guard let device = try? self.context.existingObject(with: deviceID) as? Device else {
+                return
+            }
+
             var currentBranch = device.branch ?? ""
             if currentBranch.isEmpty || currentBranch == Branch.unknown.rawValue {
-                let version = info.info.version ?? ""
-                if version.contains("-b") {
+                if newVersion.contains("-b") {
                     currentBranch = Branch.beta.rawValue
                 } else {
                     currentBranch = Branch.stable.rawValue
                 }
                 device.branch = currentBranch
             }
-            
-            // Update other fields
-            device.originalName = info.info.name
-            // device.address is already set
+
+            device.originalName = newName
             device.lastSeen = Int64(Date().timeIntervalSince1970 * 1000)
-            
-            // Save if changes exist
+
             if self.context.hasChanges {
                 do {
                     try self.context.save()
                 } catch {
-                    print("\(self.tag): Failed to update device in Core Data: \(error)")
+                    print("Failed to update device in Core Data: \(error)")
                 }
             }
         }
@@ -239,8 +235,10 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
                 
                 webSocketTask?.send(message) { error in
                     if let error = error {
-                        print("\(self.tag): Failed to send message: \(error)")
-                        self.handleFailure(error)
+                        Task {
+                            print("\(self.tag): Failed to send message: \(error)")
+                            await self.handleFailure(error)
+                        }
                     }
                 }
             }
@@ -252,31 +250,53 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     func destroy() {
         print("\(tag): Websocket client destroyed")
         disconnect()
+        urlSession.invalidateAndCancel()
     }
-    
+
+    deinit {
+        print("WebsocketClient deinit")
+        urlSession.invalidateAndCancel()
+    }
+
     // MARK: - URLSessionWebSocketDelegate
     
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
-        print("\(tag): WebSocket connected for \(deviceState.device.address ?? "")")
-        
-        DispatchQueue.main.async {
+    nonisolated func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+        // Jump to MainActor to update state
+        Task { @MainActor in
+            print("\(self.tag): WebSocket connected")
             self.deviceState.websocketStatus = .connected
             self.retryCount = 0
             self.isConnecting = false
         }
     }
-    
-    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
-        let reasonString = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "No reason"
-        print("\(tag): WebSocket closing. Code: \(closeCode), Reason: \(reasonString)")
-        
-        DispatchQueue.main.async {
+
+    nonisolated func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        Task { @MainActor in
+            let reasonString = reason.flatMap { String(data: $0, encoding: .utf8) } ?? "No reason"
+            print("\(self.tag): WebSocket closing. Code: \(closeCode), reason: \(reasonString)")
+
             self.deviceState.websocketStatus = .disconnected
+
+            if closeCode != .normalClosure && !self.isManuallyDisconnected {
+                self.reconnect()
+            }
         }
-        
-        // If it wasn't a normal closure initiated by us, try to reconnect
-        if closeCode != .normalClosure && !isManuallyDisconnected {
-            reconnect()
-        }
+    }
+}
+
+// Helper to break the strong reference cycle between URLSession and WebsocketClient
+class WeakSessionDelegate: NSObject, URLSessionWebSocketDelegate {
+    weak var delegate: URLSessionWebSocketDelegate?
+
+    init(_ delegate: URLSessionWebSocketDelegate? = nil) {
+        self.delegate = delegate
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didOpenWithProtocol protocol: String?) {
+        delegate?.urlSession?(session, webSocketTask: webSocketTask, didOpenWithProtocol: `protocol`)
+    }
+
+    func urlSession(_ session: URLSession, webSocketTask: URLSessionWebSocketTask, didCloseWith closeCode: URLSessionWebSocketTask.CloseCode, reason: Data?) {
+        delegate?.urlSession?(session, webSocketTask: webSocketTask, didCloseWith: closeCode, reason: reason)
     }
 }

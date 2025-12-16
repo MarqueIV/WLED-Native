@@ -5,6 +5,7 @@ import SwiftUI
 
 // TODO: This class was auto-converted from Kotlin using an AI, it needs to be verified.
 
+@MainActor
 class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResultsControllerDelegate {
     
     // MARK: - Published Properties
@@ -133,11 +134,13 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     
     // MARK: - NSFetchedResultsControllerDelegate
     
-    func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
-        guard let devices = controller.fetchedObjects as? [Device] else { return }
-        updateClients(with: devices)
+    nonisolated func controllerDidChangeContent(_ controller: NSFetchedResultsController<any NSFetchRequestResult>) {
+        Task { @MainActor in
+            guard let devices = controller.fetchedObjects as? [Device] else { return }
+            self.updateClients(with: devices)
+        }
     }
-    
+
     // MARK: - Lifecycle (Call these from App ScenePhase)
     
     func onPause() {
@@ -179,15 +182,14 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     }
     
     func deleteDevice(_ device: Device) {
-        print("[ListVM] Deleting device \(device.originalName ?? "")")
-        context.perform {
-            self.context.delete(device)
-            try? self.context.save()
+        print("[ListVM] Deleting device \(device.originalName ?? "")")// Capture context locally to avoid isolation issues in the closure
+        let objectID = device.objectID
+        let ctx = context
+        ctx.perform {
+            if let deviceToDelete = try? ctx.existingObject(with: objectID) {
+                ctx.delete(deviceToDelete)
+                try? ctx.save()
+            }
         }
-    }
-    
-    // Cleanup
-    deinit {
-        activeClients.values.forEach { $0.client.destroy() }
     }
 }
