@@ -2,6 +2,7 @@ import Foundation
 import CoreData
 
 /// Service responsible for identifying, downloading, and installing firmware updates for WLED devices.
+@MainActor
 class DeviceUpdateService {
     
     // MARK: - Properties
