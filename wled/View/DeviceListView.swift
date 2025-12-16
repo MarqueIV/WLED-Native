@@ -1,44 +1,46 @@
 
-
 import SwiftUI
 import CoreData
 
-//  This helper class creates the correct `DeviceListView` depending on the iOS version
-struct DeviceListViewFabric {
-    @ViewBuilder
-    static func make() -> some View {
-        DeviceListView()
-    }
-}
 
-@available(iOS 16.0, macOS 13, tvOS 16.0, watchOS 9.0, *)
 struct DeviceListView: View {
-    
-    private static let sort = [
-        SortDescriptor(\Device.displayName, comparator: .localized, order: .forward)
-    ]
-    
-    @Environment(\.managedObjectContext) private var viewContext
-    
-    @FetchRequest(sortDescriptors: sort, animation: .default)
-    private var devices: FetchedResults<Device>
-    
-    @FetchRequest(sortDescriptors: sort, animation: .default)
-    private var devicesOffline: FetchedResults<Device>
-    
-    @State private var timer: Timer? = nil
-    
-    @State private var selection: Device? = nil
-    
+
+    // MARK: - Properties
+
+    @StateObject private var viewModel: DeviceWebsocketListViewModel
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var selection: DeviceWithState? = nil
     @State private var addDeviceButtonActive: Bool = false
-    
+
     @SceneStorage("DeviceListView.showHiddenDevices") private var showHiddenDevices: Bool = false
     @SceneStorage("DeviceListView.showOfflineDevices") private var showOfflineDevices: Bool = true
-    
+
     private let discoveryService = DiscoveryService()
-    
-    //MARK: - UI
-    
+
+    init() {
+        // Inject the view context into the ViewModel
+        let context = PersistenceController.shared.container.viewContext
+        _viewModel = StateObject(wrappedValue: DeviceWebsocketListViewModel(context: context))
+    }
+
+    // MARK: - Computed Data
+
+    private var onlineDevices: [DeviceWithState] {
+        viewModel.allDevicesWithState.filter { deviceWrapper in
+            deviceWrapper.isOnline && (showHiddenDevices || !deviceWrapper.device.isHidden)
+        }
+        .sorted { $0.device.displayName < $1.device.displayName }
+    }
+
+    private var offlineDevices: [DeviceWithState] {
+        viewModel.allDevicesWithState.filter { deviceWrapper in
+            !deviceWrapper.isOnline && (showHiddenDevices || !deviceWrapper.device.isHidden)
+        }
+        .sorted { $0.device.displayName < $1.device.displayName }
+    }
+
+    //MARK: - Body
+
     var body: some View {
         NavigationSplitView {
             list
@@ -49,28 +51,45 @@ struct DeviceListView: View {
             detailView
         }
         .onAppear(perform: appearAction)
-        .onDisappear(perform: disappearAction)
-        .onChange(of: showHiddenDevices) { _ in updateFilter() }
-        .onChange(of: showOfflineDevices) { _ in updateFilter() }
+        .onChange(of: scenePhase) { newPhase in
+            switch newPhase {
+            case .active:
+                viewModel.onResume()
+            case .background, .inactive:
+                viewModel.onPause()
+            @unknown default:
+                break
+            }
+        }
     }
     
     var list: some View {
         List(selection: $selection) {
-            sublist(devices: devices)
-            if !devicesOffline.isEmpty && showOfflineDevices {
+            if !onlineDevices.isEmpty {
+                Section(header: Text("Online Devices")) {
+                    deviceRows(for: onlineDevices)
+                }
+            } else if !showOfflineDevices && offlineDevices.isEmpty {
+                // Empty state hint could go here
+            }
+
+            // Offline Devices
+            if !offlineDevices.isEmpty && showOfflineDevices {
                 Section(header: Text("Offline Devices")) {
-                    sublist(devices: devicesOffline)
+                    deviceRows(for: offlineDevices)
                 }
             }
         }
         .listStyle(.plain)
         .refreshable(action: refreshList)
     }
-    
-    private func sublist(devices: FetchedResults<Device>) -> some View {
+
+    @ViewBuilder
+    private func deviceRows(for devices: [DeviceWithState]) -> some View {
         ForEach(devices) { device in
             DeviceListItemView()
                 .overlay(
+                    // Invisible NavigationLink to handle selection while preserving custom row interactions
                     NavigationLink("", value: device).opacity(0)
                 )
                 .listRowInsets(EdgeInsets())
@@ -79,7 +98,7 @@ struct DeviceListView: View {
                 .environmentObject(device)
                 .swipeActions(allowsFullSwipe: true) {
                     Button(role: .destructive) {
-                        deleteItems(device: device)
+                        deleteItems(device: device.device)
                     } label: {
                         Label("Delete", systemImage: "trash.fill")
                     }
@@ -99,7 +118,9 @@ struct DeviceListView: View {
                 .font(.title2)
         }
     }
-    
+
+    // MARK: - Toolbar
+
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItem(placement: .principal) {
@@ -174,55 +195,28 @@ struct DeviceListView: View {
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await discoveryService.scan() }
         }
+        viewModel.refreshOfflineDevices()
     }
-    
-    private func updateFilter() {
-        print("Update Filter")
-        if showHiddenDevices {
-            devices.nsPredicate = NSPredicate(format: "isOnline == %@", NSNumber(value: true))
-            devicesOffline.nsPredicate =  NSPredicate(format: "isOnline == %@", NSNumber(value: false))
-        } else {
-            devices.nsPredicate = NSPredicate(format: "isOnline == %@ AND isHidden == %@", NSNumber(value: true), NSNumber(value: false))
-            devicesOffline.nsPredicate =  NSPredicate(format: "isOnline == %@ AND isHidden == %@", NSNumber(value: false), NSNumber(value: false))
-        }
-    }
-    
-    //  Instead of using a timer, use the WebSocket API to get notified about changes
-    //  Cancel the connection if the view disappears and reconnect as soon it apears again
+
     private func appearAction() {
-        updateFilter()
-        timer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { _ in
-            Task {
-                print("auto-refreshing")
-                await refreshList()
-            }
-        }
+        viewModel.onResume()
         discoveryService.scan()
-    }
-    
-    private func disappearAction() {
-        timer?.invalidate()
     }
     
     private func deleteItems(device: Device) {
         withAnimation {
-            viewContext.delete(device)
-            do {
-                if viewContext.hasChanges {
-                    try viewContext.save()
-                }
-            } catch {
-                // Replace this implementation with code to handle the error appropriately.
-                // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
-                let nsError = error as NSError
-                fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
-            }
+            viewModel.deleteDevice(device)
         }
     }
 }
 
-@available(iOS 16.0, macOS 13, tvOS 16.0, watchOS 9.0, *)
-#Preview("iOS 16") {
-    DeviceListView()
-        .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
+
+struct DeviceListView_Previews: PreviewProvider {
+    static var previews: some View {
+        DeviceListView()
+        // In preview, the persistence controller singleton is used by default in init,
+        // but for previews we often want the in-memory version.
+        // Since we use Singleton access in init(), we ensure shared is set up for previews
+        // or mock it if needed. The provided PersistenceController has a static preview.
+    }
 }
