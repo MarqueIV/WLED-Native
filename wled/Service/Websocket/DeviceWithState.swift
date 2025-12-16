@@ -9,6 +9,14 @@ enum WebsocketStatus {
     case connected
     case connecting
     case disconnected
+    
+    func toString() -> String {
+        switch self {
+        case .connected: return "Connected"
+        case .connecting: return "Connecting"
+        case .disconnected: return "Disconnected"
+        }
+    }
 }
 
 @MainActor

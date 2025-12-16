@@ -39,8 +39,10 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
 
         let proxy = WeakSessionDelegate()
         self.delegateProxy = proxy
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 10.0
         self.urlSession = URLSession(
-            configuration: .default,
+            configuration: configuration,
             delegate: proxy,
             delegateQueue: OperationQueue.main
         )
@@ -78,8 +80,8 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
         }
         
         print("\(tag): Connecting to \(address)")
-        let request = URLRequest(url: url)
-        
+        let request = URLRequest(url: url, timeoutInterval: 10)
+
         webSocketTask = urlSession.webSocketTask(with: request)
         webSocketTask?.resume()
         
@@ -175,9 +177,8 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
         DispatchQueue.main.async {
             self.deviceState.websocketStatus = .disconnected
             self.isConnecting = false
+            self.reconnect()
         }
-        
-        reconnect()
     }
     
     // MARK: - Sending

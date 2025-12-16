@@ -31,6 +31,8 @@ struct DeviceInfoTwoRows: View {
                 Text(device.device.displayName)
                     .font(.headline.leading(.tight))
                     .lineLimit(2)
+                // TODO: #statelessDevice migration implement proper Websocket status indicator
+                Text(device.websocketStatus.toString())
                 if hasUpdateAvailable() {
                     Image(systemName: getUpdateIconName())
                 }
