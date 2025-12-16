@@ -4,8 +4,9 @@ import SwiftUI
 struct DeviceEditView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var device: DeviceWithState
     
+    @ObservedObject var device: DeviceWithState
+
     enum Field {
         case name
     }
@@ -20,7 +21,7 @@ struct DeviceEditView: View {
     
     let unknownVersion = String(localized: "unknown_version")
     var branchOptions = ["Stable", "Beta"]
-    
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading) {
@@ -110,8 +111,7 @@ struct DeviceEditView: View {
                             // TODO: #statelessDevice migration fix update available
                             Text("From \(/*device.version ?? */unknownVersion) to \(/*device.latestUpdateVersionTagAvailable ??*/ unknownVersion)")
                             NavigationLink {
-                                DeviceUpdateDetails()
-                                    .environmentObject(device)
+                                DeviceUpdateDetails(device: device)
                             } label: {
                                 Text("See Update")
                             }
@@ -177,18 +177,21 @@ struct DeviceEditView: View {
 }
 
 struct DeviceEditView_Previews: PreviewProvider {
-    static let device = Device(context: PersistenceController.preview.container.viewContext)
-    
+    static let device = DeviceWithState(
+        initialDevice: Device(
+            context: PersistenceController.preview.container.viewContext
+        )
+    )
+
     static var previews: some View {
-        device.macAddress = UUID().uuidString
-        device.originalName = "Original name"
-        device.customName = "A custom name"
-        device.address = "192.168.11.101"
-        device.isHidden = true
+        device.device.macAddress = UUID().uuidString
+        device.device.originalName = "Original name"
+        device.device.customName = "A custom name"
+        device.device.address = "192.168.11.101"
+        device.device.isHidden = true
+
         
-        
-        return DeviceEditView()
+        return DeviceEditView(device: device)
             .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-            .environmentObject(device)
     }
 }

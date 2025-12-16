@@ -3,13 +3,13 @@ import SwiftUI
 
 struct DeviceView: View {
     @Environment(\.colorScheme) var colorScheme
-    @EnvironmentObject var device: Device
-    
+    @ObservedObject var device: DeviceWithState
+
     @State var showDownloadFinished = false
     @State var shouldWebViewRefresh = false
     
     @State var showEditDeviceView = false
-    
+
     var body: some View {
         ZStack {
             WebView(url: getDeviceAddress(), reload: $shouldWebViewRefresh) { filePathDestination in
@@ -33,7 +33,7 @@ struct DeviceView: View {
                 }
             }
         }
-        .navigationTitle(device.displayName)
+        .navigationTitle(device.device.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
     }
@@ -43,8 +43,7 @@ struct DeviceView: View {
     var toolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             NavigationLink {
-                DeviceEditView()
-                    .environmentObject(device)
+                DeviceEditView(device: device)
             } label: {
                 Image(systemName: "gear")
             }
@@ -62,7 +61,7 @@ struct DeviceView: View {
     }
     
     func getDeviceAddress() -> URL? {
-        guard let deviceAddress = device.address else {
+        guard let deviceAddress = device.device.address else {
             return nil
         }
         return URL(string: "http://\(deviceAddress)")!
@@ -76,19 +75,20 @@ struct DeviceView: View {
 }
 
 struct DeviceView_Previews: PreviewProvider {
-    static let device = Device(
-        context: PersistenceController.preview.container.viewContext
+    static let device = DeviceWithState(
+        initialDevice: Device(
+            context: PersistenceController.preview.container.viewContext
+        )
     )
-    
+
     static var previews: some View {
-        device.macAddress = UUID().uuidString
-        device.originalName = "A fancy device"
-        device.address = "google.com"
+        device.device.macAddress = UUID().uuidString
+        device.device.originalName = "A fancy device"
+        device.device.address = "google.com"
         // TODO: #statelessDevice fix this preview after the migration
         return NavigationView{
-            DeviceView()
+            DeviceView(device: device)
                 .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-                .environmentObject(device)
         }
     }
 }

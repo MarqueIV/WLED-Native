@@ -6,7 +6,7 @@ import MarkdownUI
 struct DeviceUpdateDetails: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var device: DeviceWithState
+    @ObservedObject var device: DeviceWithState
 
     @State var showWarningDialog = false
     @State var showInstallingDialog = false
@@ -48,7 +48,7 @@ struct DeviceUpdateDetails: View {
         .navigationTitle("Version \(versionViewModel.version?.tagName ?? "")")
         .fullScreenCover(isPresented: $showInstallingDialog) {
             if let version = versionViewModel.version {
-                DeviceUpdateInstalling(version: version)
+                DeviceUpdateInstalling(device: device, version: version)
                     .background(BackgroundBlurView())
             }
         }
@@ -84,20 +84,23 @@ struct DeviceUpdateDetails: View {
 }
 
 struct DeviceUpdateDetails_Previews: PreviewProvider {
-    static let device = Device(context: PersistenceController.preview.container.viewContext)
-    
+    static let device = DeviceWithState(
+        initialDevice: Device(
+            context: PersistenceController.preview.container.viewContext
+        )
+    )
+
     static var previews: some View {
         // TODO: #statelessDevice migration fix preview
-        device.macAddress = UUID().uuidString
+        device.device.macAddress = UUID().uuidString
         //device.version = "0.13.0"
         //device.latestUpdateVersionTagAvailable = "v0.14.0"
         //device.isOnline = true
 
         
         return NavigationView{
-            DeviceUpdateDetails()
+            DeviceUpdateDetails(device: device)
                 .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-                .environmentObject(device)
         }
     }
 }

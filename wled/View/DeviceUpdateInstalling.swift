@@ -7,8 +7,8 @@ struct DeviceUpdateInstalling: View {
     
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.presentationMode) var presentationMode
-    
-    @EnvironmentObject var device: DeviceWithState
+
+    @ObservedObject var device: DeviceWithState
     @ObservedObject var version: Version
     
     @State var offset: CGFloat = 1000
@@ -167,10 +167,14 @@ extension Notification.Name {
 
 
 struct DeviceUpdateInstalling_Previews: PreviewProvider {
-    static let device = Device(context: PersistenceController.preview.container.viewContext)
-    
+    static let device = DeviceWithState(
+        initialDevice: Device(
+            context: PersistenceController.preview.container.viewContext
+        )
+    )
+
     static var previews: some View {
-        device.macAddress = UUID().uuidString
+        device.device.macAddress = UUID().uuidString
         // TODO: #statelessDevice migration fix preview
         // device.version = "0.13.0"
         // device.latestUpdateVersionTagAvailable = "v0.14.0"
@@ -180,8 +184,7 @@ struct DeviceUpdateInstalling_Previews: PreviewProvider {
         let version = Version(context: PersistenceController.preview.container.viewContext)
         version.tagName = "v0.14.0"
         
-        return DeviceUpdateInstalling(version: version)
+        return DeviceUpdateInstalling(device: device, version: version)
             .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-            .environmentObject(device)
     }
 }

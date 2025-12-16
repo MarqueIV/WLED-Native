@@ -23,7 +23,7 @@ private extension GroupBoxStyle where Self == DeviceGroupBoxStyle {
 
 struct DeviceInfoTwoRows: View {
     @Environment(\.managedObjectContext) private var viewContext
-    @EnvironmentObject var device: DeviceWithState
+    @ObservedObject var device: DeviceWithState
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -125,7 +125,7 @@ struct DeviceInfoTwoRows: View {
 struct DeviceListItemView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.colorScheme) var colorScheme
-    @EnvironmentObject var device: DeviceWithState
+    @ObservedObject var device: DeviceWithState
 
     @State private var isOn = false
     @State private var brightness: Double = 0.0
@@ -133,7 +133,7 @@ struct DeviceListItemView: View {
     var body: some View {
         GroupBox {
             HStack {
-                DeviceInfoTwoRows()
+                DeviceInfoTwoRows(device: device)
 
                 Toggle("Turn On/Off", isOn: isOnBinding)
                     .labelsHidden()
@@ -209,13 +209,17 @@ struct DeviceListItemView: View {
 }
 
 struct DeviceListItemView_Previews: PreviewProvider {
-    static let device = Device(context: PersistenceController.preview.container.viewContext)
+    static let device = DeviceWithState(
+        initialDevice: Device(
+            context: PersistenceController.preview.container.viewContext
+        )
+    )
 
     static var previews: some View {
-        device.macAddress = UUID().uuidString
-        device.originalName = ""
-        device.address = "192.168.11.101"
-        device.isHidden = false
+        device.device.macAddress = UUID().uuidString
+        device.device.originalName = ""
+        device.device.address = "192.168.11.101"
+        device.device.isHidden = false
         // TODO: #statelessDevice fix device preview
         //        device.isOnline = true
         //        device.networkRssi = -80
@@ -225,8 +229,7 @@ struct DeviceListItemView_Previews: PreviewProvider {
         //        device.isHidden = true
 
 
-        return DeviceListItemView()
+        return DeviceListItemView(device: device)
             .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-            .environmentObject(device)
     }
 }

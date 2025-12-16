@@ -87,7 +87,7 @@ struct DeviceListView: View {
     @ViewBuilder
     private func deviceRows(for devices: [DeviceWithState]) -> some View {
         ForEach(devices) { device in
-            DeviceListItemView()
+            DeviceListItemView(device: device)
                 .overlay(
                     // Invisible NavigationLink to handle selection while preserving custom row interactions
                     NavigationLink("", value: device).opacity(0)
@@ -95,7 +95,6 @@ struct DeviceListView: View {
                 .listRowInsets(EdgeInsets())
                 .listRowSeparator(.hidden)
                 .buttonStyle(PlainButtonStyle())
-                .environmentObject(device)
                 .swipeActions(allowsFullSwipe: true) {
                     Button(role: .destructive) {
                         deleteItems(device: device.device)
@@ -110,8 +109,7 @@ struct DeviceListView: View {
     private var detailView: some View {
         if let device = selection {
             NavigationStack {
-                DeviceView()
-                    .environmentObject(device)
+                DeviceView(device: device)
             }
         } else {
             Text("Select A Device")
