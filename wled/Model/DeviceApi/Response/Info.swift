@@ -29,7 +29,7 @@ struct Info: Decodable {
     var platformName : String?
     var arduinoCoreVersion : String?
     /// Added in 0.15
-    var clockFrequency : String?
+    var clockFrequency : Int64?
     /// Added in 0.15
     var flashChipSize : Int64?
     /// lwip is deprecated and is supposed to be removed in 0.14.0
