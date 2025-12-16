@@ -111,8 +111,12 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     }
     
     private func createAndAddClient(for device: Device, mac: String) {
-        let newClient = WebsocketClient(device: device, context: context)
-        
+        let newClient = WebsocketClient(device: device)
+
+        newClient.onDeviceStateUpdated = { [weak self] info in
+            self?.handleDeviceUpdate(deviceID: device.objectID, info: info)
+        }
+
         if !isPaused {
             newClient.connect()
         }
@@ -122,7 +126,34 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
             lastKnownAddress: device.address ?? ""
         )
     }
-    
+
+    private func handleDeviceUpdate(deviceID: NSManagedObjectID, info: DeviceStateInfo) {
+        context.perform {
+            guard let device = try? self.context.existingObject(with: deviceID) as? Device else { return }
+
+            // Logic moved from WebsocketClient to here
+            let newName = info.info.name
+            let newVersion = info.info.version ?? ""
+
+            var currentBranch = device.branch ?? ""
+            if currentBranch.isEmpty || currentBranch == Branch.unknown.rawValue {
+                if newVersion.contains("-b") {
+                    currentBranch = Branch.beta.rawValue
+                } else {
+                    currentBranch = Branch.stable.rawValue
+                }
+                device.branch = currentBranch
+            }
+
+            device.originalName = newName
+            device.lastSeen = Int64(Date().timeIntervalSince1970 * 1000)
+
+            if self.context.hasChanges {
+                try? self.context.save()
+            }
+        }
+    }
+
     private func publishState() {
         // Map the clients to the DeviceWithState list expected by the UI
         DispatchQueue.main.async {

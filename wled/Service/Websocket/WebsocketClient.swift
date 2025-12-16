@@ -11,8 +11,7 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     
     // The state holder visible to the UI
     @Published var deviceState: DeviceWithState
-    
-    private let context: NSManagedObjectContext
+
     private var webSocketTask: URLSessionWebSocketTask?
     nonisolated let urlSession: URLSession
     private let delegateProxy: WeakSessionDelegate
@@ -30,12 +29,13 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     // Coders
     private let decoder = JSONDecoder()
     private let encoder = JSONEncoder()
-    
+
+    var onDeviceStateUpdated: ((DeviceStateInfo) -> Void)?
+
     // MARK: - Initialization
     
-    init(device: Device, context: NSManagedObjectContext) {
+    init(device: Device) {
         self.deviceState = DeviceWithState(initialDevice: device)
-        self.context = context
 
         let proxy = WeakSessionDelegate()
         self.delegateProxy = proxy
@@ -146,61 +146,24 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
     }
     
     private func handleMessage(_ text: String) {
-        // print("\(tag): onMessage: \(text)") // Uncomment for verbose logging
-        guard let data = text.data(using: .utf8) else { return }
-        
-        do {
-            let info = try decoder.decode(DeviceStateInfo.self, from: data)
-            
-            // Update UI State on Main Thread
-            DispatchQueue.main.async {
-                self.deviceState.stateInfo = info
-                
-                // If we get a message, we are connected (fallback if onOpen didn't fire)
-                if self.isConnecting {
-                    // This logic is usually handled in urlSession(_:webSocketTask:didOpenWithProtocol:)
-                    // but can be reinforced here.
-                }
-            }
-            
-            // Update Core Data Entity
-            updateDeviceEntity(with: info)
-            
-        } catch {
-            print("\(tag): Failed to parse JSON from WebSocket: \(error)")
-        }
-    }
-    
-    private func updateDeviceEntity(with info: DeviceStateInfo) {
-        let deviceID = self.deviceState.device.objectID
-        let newName = info.info.name
-        let newVersion = info.info.version ?? ""
-
-        context.perform { [weak self] in
+        Task.detached(priority: .userInitiated) { [weak self] in
             guard let self = self else { return }
-            guard let device = try? self.context.existingObject(with: deviceID) as? Device else {
-                return
-            }
+            guard let data = text.data(using: .utf8) else { return }
 
-            var currentBranch = device.branch ?? ""
-            if currentBranch.isEmpty || currentBranch == Branch.unknown.rawValue {
-                if newVersion.contains("-b") {
-                    currentBranch = Branch.beta.rawValue
-                } else {
-                    currentBranch = Branch.stable.rawValue
+            do {
+                let info = try JSONDecoder().decode(DeviceStateInfo.self, from: data)
+                await MainActor.run {
+                    self.deviceState.stateInfo = info
+
+                    // If we get a message, we are connected (fallback if onOpen didn't fire)
+                    if self.isConnecting {
+                        self.deviceState.websocketStatus = .connected
+                        self.isConnecting = false
+                    }
+                    self.onDeviceStateUpdated?(info)
                 }
-                device.branch = currentBranch
-            }
-
-            device.originalName = newName
-            device.lastSeen = Int64(Date().timeIntervalSince1970 * 1000)
-
-            if self.context.hasChanges {
-                do {
-                    try self.context.save()
-                } catch {
-                    print("Failed to update device in Core Data: \(error)")
-                }
+            } catch {
+                print("Failed to parse JSON: \(error)")
             }
         }
     }
