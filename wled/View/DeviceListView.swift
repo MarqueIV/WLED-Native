@@ -28,14 +28,14 @@ struct DeviceListView: View {
         viewModel.allDevicesWithState.filter { deviceWrapper in
             deviceWrapper.isOnline && (showHiddenDevices || !deviceWrapper.device.isHidden)
         }
-        .sorted { $0.device.displayName < $1.device.displayName }
+        .sorted { $0.device.displayName.localizedStandardCompare($1.device.displayName) == .orderedAscending }
     }
 
     private var offlineDevices: [DeviceWithState] {
         viewModel.allDevicesWithState.filter { deviceWrapper in
             !deviceWrapper.isOnline && (showHiddenDevices || !deviceWrapper.device.isHidden)
         }
-        .sorted { $0.device.displayName < $1.device.displayName }
+        .sorted { $0.device.displayName.localizedStandardCompare($1.device.displayName) == .orderedAscending }
     }
 
     //MARK: - Body
