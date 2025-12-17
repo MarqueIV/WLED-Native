@@ -87,21 +87,29 @@ struct DeviceListView: View {
     @ViewBuilder
     private func deviceRows(for devices: [DeviceWithState]) -> some View {
         ForEach(devices) { device in
-            DeviceListItemView(device: device)
-                .overlay(
-                    // Invisible NavigationLink to handle selection while preserving custom row interactions
-                    NavigationLink("", value: device).opacity(0)
-                )
-                .listRowInsets(EdgeInsets())
-                .listRowSeparator(.hidden)
-                .buttonStyle(PlainButtonStyle())
-                .swipeActions(allowsFullSwipe: true) {
-                    Button(role: .destructive) {
-                        deleteItems(device: device.device)
-                    } label: {
-                        Label("Delete", systemImage: "trash.fill")
-                    }
+            DeviceListItemView(
+                device: device,
+                onTogglePower: { isOn in
+                    viewModel.setDevicePower(for: device, isOn: isOn)
+                },
+                onChangeBrightness: { brightness in
+                    viewModel.setBrightness(for: device, brightness: brightness)
                 }
+            )
+            .overlay(
+                // Invisible NavigationLink to handle selection while preserving custom row interactions
+                NavigationLink("", value: device).opacity(0)
+            )
+            .listRowInsets(EdgeInsets())
+            .listRowSeparator(.hidden)
+            .buttonStyle(PlainButtonStyle())
+            .swipeActions(allowsFullSwipe: true) {
+                Button(role: .destructive) {
+                    deleteItems(device: device.device)
+                } label: {
+                    Label("Delete", systemImage: "trash.fill")
+                }
+            }
         }
     }
     

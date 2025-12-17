@@ -2,7 +2,6 @@ import Foundation
 import CoreData
 import Combine
 
-// TODO: This class was auto-converted from Kotlin using an AI, it needs to be verified.
 
 @MainActor
 class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {

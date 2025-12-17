@@ -3,7 +3,6 @@ import CoreData
 import Combine
 import SwiftUI
 
-// TODO: This class was auto-converted from Kotlin using an AI, it needs to be verified.
 
 @MainActor
 class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResultsControllerDelegate {

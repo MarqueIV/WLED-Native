@@ -129,7 +129,10 @@ struct DeviceListItemView: View {
     @Environment(\.colorScheme) var colorScheme
     @ObservedObject var device: DeviceWithState
 
-    @State private var isOn = false
+    // MARK: - Actions
+    var onTogglePower: (Bool) -> Void
+    var onChangeBrightness: (Int) -> Void
+
     @State private var brightness: Double = 0.0
 
     var body: some View {
@@ -147,13 +150,10 @@ struct DeviceListItemView: View {
                 value: $brightness,
                 in: 0.0...255.0,
                 onEditingChanged: { editing in
-                    //if !editing {
-                    // TODO: #statelessDevice migration update isOn here
-                    // let postParam = WLEDStateChange(brightness: Int64(brightness))
-                    // Task {
-                    //     await device.requestManager.addRequest(WLEDChangeStateRequest(state: postParam, context: viewContext))
-                    // }
-                    //}
+                    // Call the brightness closure when dragging ends
+                    if !editing {
+                        onChangeBrightness(Int(brightness))
+                    }
                 }
             )
             .tint(currentDeviceColor)
@@ -171,14 +171,9 @@ struct DeviceListItemView: View {
     private var isOnBinding: Binding<Bool> {
         Binding(get: {
             device.stateInfo?.state.isOn ?? false
-        }, set: {
-            isOn = $0
-            // TODO: #statelessDevice migration update isOn here
-            // let postParam = WLEDStateChange(isOn: $0)
-            //
-            // Task {
-            //     await device.requestManager.addRequest(WLEDChangeStateRequest(state: postParam, context: viewContext))
-            // }
+        }, set: { isOn in
+            device.stateInfo?.state.isOn = isOn
+            onTogglePower(isOn)
         })
     }
 
@@ -231,7 +226,15 @@ struct DeviceListItemView_Previews: PreviewProvider {
         //        device.isHidden = true
 
 
-        return DeviceListItemView(device: device)
+        return DeviceListItemView(
+            device: device,
+            onTogglePower: { isOn in
+                print("Preview: Power toggled to \(isOn)")
+            },
+            onChangeBrightness: { val in
+                print("Preview: Brightness changed to \(val)")
+            }
+        )
             .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     }
 }
