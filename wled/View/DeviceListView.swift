@@ -65,9 +65,7 @@ struct DeviceListView: View {
     var list: some View {
         List(selection: $selection) {
             if !onlineDevices.isEmpty {
-                Section(header: Text("Online Devices")) {
-                    deviceRows(for: onlineDevices)
-                }
+                deviceRows(for: onlineDevices)
             } else if !showOfflineDevices && offlineDevices.isEmpty {
                 // Empty state hint could go here
             }
