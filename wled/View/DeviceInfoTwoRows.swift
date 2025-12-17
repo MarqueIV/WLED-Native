@@ -110,3 +110,28 @@ struct DeviceInfoTwoRows: View {
         return 0
     }
 }
+
+struct DeviceInfoTwoRows_Previews: PreviewProvider {
+    static let device = DeviceWithState(
+        initialDevice: Device(
+            context: PersistenceController.preview.container.viewContext
+        )
+    )
+
+    static var previews: some View {
+        device.device.macAddress = UUID().uuidString
+        device.device.originalName = ""
+        device.device.address = "192.168.11.101"
+        device.device.isHidden = false
+        // TODO: #statelessDevice fix device preview
+        //        device.isOnline = true
+        //        device.networkRssi = -80
+        //        device.color = 6244567779
+        //        device.brightness = 125
+        //        device.isRefreshing = true
+        //        device.isHidden = true
+
+
+        return DeviceInfoTwoRows(device: device)
+    }
+}
