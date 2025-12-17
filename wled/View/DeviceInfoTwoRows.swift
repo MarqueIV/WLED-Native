@@ -43,6 +43,7 @@ struct DeviceInfoTwoRows: View {
                         .foregroundStyle(.secondary)
                         .lineSpacing(0)
                 }
+                // TODO: Display "offline since" message like on Android
                 if (device.device.isHidden) {
                     Image(systemName: "eye.slash")
                         .resizable()

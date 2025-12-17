@@ -23,6 +23,7 @@ struct DeviceListView: View {
 
     // MARK: - Computed Data
 
+    // TODO: Keep devices as online if their lastSeen is less than a minute old
     private var onlineDevices: [DeviceWithState] {
         viewModel.allDevicesWithState.filter { deviceWrapper in
             deviceWrapper.isOnline && (showHiddenDevices || !deviceWrapper.device.isHidden)
