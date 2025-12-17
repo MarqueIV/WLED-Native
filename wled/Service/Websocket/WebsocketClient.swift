@@ -2,6 +2,7 @@ import Foundation
 import CoreData
 import Combine
 
+// TODO: Verify, devices never become offline
 
 @MainActor
 class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {

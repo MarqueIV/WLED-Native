@@ -79,7 +79,19 @@ struct DeviceListItemView: View {
     private var currentDeviceColor: Color {
         // Depending on your getColor signature, you might need to handle the optional state explicitly
         let colorInt = device.device.getColor(state: device.stateInfo?.state)
-        return colorFromHex(rgbValue: Int(colorInt))
+        let activeColor = colorFromHex(rgbValue: Int(colorInt))
+
+        if device.isOnline {
+            return activeColor
+        }
+
+        // Convert to UIColor to easily extract HSB values
+        let uiColor = UIColor(activeColor)
+        var h: CGFloat = 0, s: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+
+        // Return a new Color with 0 saturation (Gray), preserving brightness
+        return Color(hue: h, saturation: 0, brightness: b, opacity: Double(a))
     }
 
     func colorFromHex(rgbValue: Int, alpha: Double? = 1.0) -> Color {
