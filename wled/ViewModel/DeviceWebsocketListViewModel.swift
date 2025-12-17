@@ -17,7 +17,9 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     @Published var showHiddenDevices: Bool = false
     
     // MARK: - Private Properties
-    
+
+    private var discoveryService: DiscoveryService?
+    private let deviceFirstContactService = DeviceFirstContactService()
     private let context: NSManagedObjectContext
     private var frc: NSFetchedResultsController<Device>!
     
@@ -44,7 +46,13 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
         if let objects = frc.fetchedObjects {
             updateClients(with: objects)
         }
-        
+
+        self.discoveryService = DiscoveryService{ [weak self] address, macAddress in
+            Task { @MainActor [weak self] in
+                self?.deviceDiscovered(at: address, withMACAddress: macAddress)
+            }
+        }
+
         // Load preferences (Mocked for now, replace with your UserPreferences logic)
         self.showOfflineDevicesLast = UserDefaults.standard.bool(forKey: "showOfflineDevicesLast")
         self.showHiddenDevices = UserDefaults.standard.bool(forKey: "showHiddenDevices")
@@ -219,6 +227,27 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
             if let deviceToDelete = try? ctx.existingObject(with: objectID) {
                 ctx.delete(deviceToDelete)
                 try? ctx.save()
+            }
+        }
+    }
+
+    // MARK: - Discovery Logic
+
+    func startDiscovery() {
+        print("[ListVM] Starting discovery scan")
+        discoveryService?.scan()
+    }
+
+    private func deviceDiscovered(at address: String, withMACAddress macAddress: String?) {
+        Task {
+            do {
+                if await !deviceFirstContactService
+                    .tryUpdateAddress(macAddress: macAddress, address: address) {
+                    _ = try await deviceFirstContactService
+                        .fetchAndUpsertDevice(address: address)
+                }
+            } catch {
+                print("deviceDiscovered: Failed to upsert device: \(error)")
             }
         }
     }

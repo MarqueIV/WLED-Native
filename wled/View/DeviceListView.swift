@@ -15,8 +15,6 @@ struct DeviceListView: View {
     @SceneStorage("DeviceListView.showHiddenDevices") private var showHiddenDevices: Bool = false
     @SceneStorage("DeviceListView.showOfflineDevices") private var showOfflineDevices: Bool = true
 
-    private let discoveryService = DiscoveryService()
-
     init() {
         // Inject the view context into the ViewModel
         let context = PersistenceController.shared.container.viewContext
@@ -198,15 +196,13 @@ struct DeviceListView: View {
     
     @Sendable
     private func refreshList() async {
-        await withTaskGroup(of: Void.self) { group in
-            group.addTask { await discoveryService.scan() }
-        }
+        viewModel.startDiscovery()
         viewModel.refreshOfflineDevices()
     }
 
     private func appearAction() {
         viewModel.onResume()
-        discoveryService.scan()
+        viewModel.startDiscovery()
     }
     
     private func deleteItems(device: Device) {
