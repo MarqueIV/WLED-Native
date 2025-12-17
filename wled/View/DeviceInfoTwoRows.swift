@@ -131,7 +131,6 @@ struct OfflineSinceText: View {
         // Update the view every minute to keep the "ago" text fresh
         TimelineView(.periodic(from: .now, by: 60)) { context in
             getOfflineText(now: context.date)
-                .onTapGesture { }
         }
     }
 
