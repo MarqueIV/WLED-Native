@@ -44,7 +44,10 @@ struct DeviceListView: View {
         NavigationSplitView {
             list
                 .toolbar{ toolbar }
-                .sheet(isPresented: $addDeviceButtonActive, content: DeviceAddView.init)
+                .sheet(isPresented: $addDeviceButtonActive) {
+                    DeviceAddView()
+                        .presentationBackground(.thinMaterial)
+                }
                 .navigationBarTitleDisplayMode(.inline)
         } detail: {
             detailView

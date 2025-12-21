@@ -37,6 +37,7 @@ actor DeviceFirstContactService {
     func fetchAndUpsertDevice(address: String) async throws -> NSManagedObjectID {
         logger.debug("Trying to create/update device at: \(address)")
 
+        // TODO: Sanitize URL, adding a device with a protocol (ex: http) breaks the websockets and looks weird in the UI, strip protocol.
         let info = try await getDeviceInfo(address: address)
 
         guard let macAddress = info.mac, !macAddress.isEmpty else {
