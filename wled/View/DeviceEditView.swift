@@ -69,62 +69,64 @@ struct DeviceEditView: View {
                     if newBranch == device.device.branchValue {
                         return
                     }
+                    // TODO: Updating the device in the database should probably
+                    //   be done in a viewmodel
                     device.device.branchValue = newBranch
                     device.device.skipUpdateTag = ""
                     saveDevice()
-                    Task {
-                        await checkForUpdate()
-                    }
                 }
             }
             .padding(.bottom)
-            
-            VStack(alignment: .leading) {
-                // TODO: #statelessDevice migration fix update available
-                if ((device.availableUpdateVersion ?? "").isEmpty) {
-                    Text("Your device is up to date")
-                    // TODO: #statelessDevice migration fix update available
-                    Text("Version \(/*device.device.version ?? */unknownVersion)")
-                    HStack {
-                        Button(action: {
-                            Task {
-                                await checkForUpdate()
+
+            if (device.stateInfo != nil) {
+                // TODO: Update this to be its own "helicopter" view
+                VStack(alignment: .leading) {
+                    if ((device.availableUpdateVersion ?? "").isEmpty) {
+                        Text("Your device is up to date")
+                        // TODO: #statelessDevice migration fix update available
+                        Text("Version \(/*device.device.version ?? */unknownVersion)")
+                        HStack {
+                            Button(action: {
+                                Task {
+                                    await checkForUpdate()
+                                }
+                            }) {
+                                Text(isCheckingForUpdates ? "Checking for Updates" : "Check for Update")
                             }
-                        }) {
-                            Text(isCheckingForUpdates ? "Checking for Updates" : "Check for Update")
-                        }
-                        .buttonStyle(.bordered)
-                        .padding(.trailing)
-                        .disabled(isCheckingForUpdates)
-                        ProgressView()
-                            .opacity(isCheckingForUpdates ? 1 : 0)
-                    }
-                } else {
-                    HStack {
-                        Image(systemName: getUpdateIconName())
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 30.0, height: 30.0)
+                            .buttonStyle(.bordered)
                             .padding(.trailing)
-                        VStack(alignment: .leading) {
-                            Text("Update Available")
-                            // TODO: #statelessDevice migration fix update available
-                            Text("From \(/*device.version ?? */unknownVersion) to \(device.availableUpdateVersion ?? unknownVersion)")
-                            NavigationLink {
-                                DeviceUpdateDetails(device: device)
-                            } label: {
-                                Text("See Update")
+                            .disabled(isCheckingForUpdates)
+                            ProgressView()
+                                .opacity(isCheckingForUpdates ? 1 : 0)
+                        }
+                    } else {
+                        HStack {
+                            Image(systemName: getUpdateIconName())
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(width: 30.0, height: 30.0)
+                                .padding(.trailing)
+                            VStack(alignment: .leading) {
+                                Text("Update Available")
+                                // TODO: #statelessDevice migration fix update available
+                                Text("From \(/*device.version ?? */unknownVersion) to \(device.availableUpdateVersion ?? unknownVersion)")
+                                NavigationLink {
+                                    DeviceUpdateDetails(device: device)
+                                } label: {
+                                    Text("See Update")
+                                }
                             }
                         }
+                        .buttonStyle(.borderedProminent)
                     }
-                    .buttonStyle(.borderedProminent)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .background(Color(UIColor.secondarySystemBackground))
+                .cornerRadius(8)
+                .animation(.default, value: device.availableUpdateVersion)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding()
-            .background(Color(UIColor.secondarySystemBackground))
-            .cornerRadius(8)
-            
+
             Spacer()
         }
         .padding()
