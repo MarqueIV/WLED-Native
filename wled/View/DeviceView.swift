@@ -68,9 +68,7 @@ struct DeviceView: View {
     }
     
     func getToolbarBadgeCount() -> Int {
-        // TODO: #statelessDevice migration fix update available badge
-        // return (device.latestUpdateVersionTagAvailable ?? "").isEmpty ? 0 : 1
-        return 0
+        return device.hasUpdateAvailable ? 1 : 0
     }
 }
 

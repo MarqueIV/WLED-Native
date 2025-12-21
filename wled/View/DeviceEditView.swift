@@ -81,7 +81,7 @@ struct DeviceEditView: View {
             
             VStack(alignment: .leading) {
                 // TODO: #statelessDevice migration fix update available
-                if ((/*device.latestUpdateVersionTagAvailable ?? */"").isEmpty) {
+                if ((device.availableUpdateVersion ?? "").isEmpty) {
                     Text("Your device is up to date")
                     // TODO: #statelessDevice migration fix update available
                     Text("Version \(/*device.device.version ?? */unknownVersion)")
@@ -109,7 +109,7 @@ struct DeviceEditView: View {
                         VStack(alignment: .leading) {
                             Text("Update Available")
                             // TODO: #statelessDevice migration fix update available
-                            Text("From \(/*device.version ?? */unknownVersion) to \(/*device.latestUpdateVersionTagAvailable ??*/ unknownVersion)")
+                            Text("From \(/*device.version ?? */unknownVersion) to \(device.availableUpdateVersion ?? unknownVersion)")
                             NavigationLink {
                                 DeviceUpdateDetails(device: device)
                             } label: {

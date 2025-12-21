@@ -20,7 +20,7 @@ struct DeviceInfoTwoRows: View {
                     .lineLimit(2)
                 // TODO: #statelessDevice migration implement proper Websocket status indicator
                 Text(device.websocketStatus.toString())
-                if hasUpdateAvailable() {
+                if device.hasUpdateAvailable {
                     Image(systemName: getUpdateIconName())
                 }
             }
@@ -45,7 +45,6 @@ struct DeviceInfoTwoRows: View {
                         .lineSpacing(0)
                         .minimumScaleFactor(0.6)
                 }
-                // TODO: Display "offline since" message like on Android
                 if (device.device.isHidden) {
                     Image(systemName: "eye.slash")
                         .resizable()
@@ -64,13 +63,6 @@ struct DeviceInfoTwoRows: View {
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    func hasUpdateAvailable() -> Bool {
-        viewContext.performAndWait {
-            // TODO: #statelessDevice migration fix hasUpdateAvailable
-            return !(/*device.latestUpdateVersionTagAvailable ?? */"").isEmpty
-        }
     }
 
     func getUpdateIconName() -> String {
@@ -228,3 +220,4 @@ struct OfflineSinceText_Previews: PreviewProvider {
         }
     }
 }
+
