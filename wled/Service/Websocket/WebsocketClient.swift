@@ -2,7 +2,6 @@ import Foundation
 import CoreData
 import Combine
 
-// TODO: Verify, devices never become offline
 
 @MainActor
 class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
@@ -40,7 +39,9 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
         let proxy = WeakSessionDelegate()
         self.delegateProxy = proxy
         let configuration = URLSessionConfiguration.default
-        configuration.timeoutIntervalForRequest = 10.0
+        configuration.timeoutIntervalForRequest = 15.0
+        configuration.timeoutIntervalForResource = 30.0
+        configuration.waitsForConnectivity = false
         self.urlSession = URLSession(
             configuration: configuration,
             delegate: proxy,
@@ -210,7 +211,7 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
             print("\(tag): Failed to encode state: \(error)")
         }
     }
-    
+
     func destroy() {
         print("\(tag): Websocket client destroyed")
         disconnect()

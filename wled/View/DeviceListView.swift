@@ -11,9 +11,14 @@ struct DeviceListView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: DeviceWithState? = nil
     @State private var addDeviceButtonActive: Bool = false
+    @State private var currentTime = Date()
 
     @SceneStorage("DeviceListView.showHiddenDevices") private var showHiddenDevices: Bool = false
     @SceneStorage("DeviceListView.showOfflineDevices") private var showOfflineDevices: Bool = true
+
+    /// Amount of time after a device becomes offline before it is considered offline.
+    private let offlineGracePeriod: TimeInterval = 60
+    private let timer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
 
     init() {
         // Inject the view context into the ViewModel
@@ -23,17 +28,30 @@ struct DeviceListView: View {
 
     // MARK: - Computed Data
 
-    // TODO: Keep devices as online if their lastSeen is less than a minute old
+    /// Determines if a device should be displayed in the "Online" section.
+    /// Returns true if the device is connected OR if it was seen within the grace period.
+    private func isConsideredOnline(_ device: DeviceWithState, at referenceTime: Date) -> Bool {
+        if device.isOnline { return true }
+
+        // Calculate time since last seen
+        // lastSeen is Int64 (milliseconds), convert to TimeInterval (seconds)
+        let lastSeenSeconds = TimeInterval(device.device.lastSeen) / 1000.0
+        let lastSeenDate = Date(timeIntervalSince1970: lastSeenSeconds)
+
+        // Check if within grace period
+        return Date().timeIntervalSince(lastSeenDate) < offlineGracePeriod
+    }
+
     private var onlineDevices: [DeviceWithState] {
-        viewModel.allDevicesWithState.filter { deviceWrapper in
-            deviceWrapper.isOnline && (showHiddenDevices || !deviceWrapper.device.isHidden)
+        viewModel.allDevicesWithState.filter { device in
+            isConsideredOnline(device, at: currentTime) && (showHiddenDevices || !device.device.isHidden)
         }
         .sorted { $0.device.displayName.localizedStandardCompare($1.device.displayName) == .orderedAscending }
     }
 
     private var offlineDevices: [DeviceWithState] {
-        viewModel.allDevicesWithState.filter { deviceWrapper in
-            !deviceWrapper.isOnline && (showHiddenDevices || !deviceWrapper.device.isHidden)
+        viewModel.allDevicesWithState.filter { device in
+            !isConsideredOnline(device, at: currentTime) && (showHiddenDevices || !device.device.isHidden)
         }
         .sorted { $0.device.displayName.localizedStandardCompare($1.device.displayName) == .orderedAscending }
     }
@@ -53,10 +71,17 @@ struct DeviceListView: View {
             detailView
         }
         .onAppear(perform: appearAction)
+        .onReceive(timer) { input in
+            withAnimation {
+                // Updating this state variable forces 'onlineDevices' to be re-evaluated
+                currentTime = input
+            }
+        }
         .onChange(of: scenePhase) { newPhase in
             switch newPhase {
             case .active:
                 viewModel.onResume()
+                currentTime = Date()
             case .background, .inactive:
                 viewModel.onPause()
             @unknown default:
