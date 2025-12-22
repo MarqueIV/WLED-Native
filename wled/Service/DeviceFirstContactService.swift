@@ -14,6 +14,7 @@ import OSLog
 actor DeviceFirstContactService {
 
     private let persistenceController: PersistenceController
+    private let urlSession: URLSession
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.wled", category: "DeviceFirstContactService")
 
     enum ServiceError: Error {
@@ -22,8 +23,12 @@ actor DeviceFirstContactService {
         case networkError(Error)
     }
 
-    init(persistenceController: PersistenceController = .shared) {
+    /// - Parameters:
+    ///   - persistenceController: The Core Data controller.
+    ///   - urlSession: Injected session for testability (defaults to .shared).
+    init(persistenceController: PersistenceController = .shared, urlSession: URLSession = .shared) {
         self.persistenceController = persistenceController
+        self.urlSession = urlSession
     }
 
     // MARK: - Public API
@@ -32,56 +37,20 @@ actor DeviceFirstContactService {
     /// device record exists in the database (creating or updating its address
     /// as necessary).
     ///
-    /// - Parameter address: The network address (e.g., IP or hostname) to query.
+    /// - Parameter rawAddress: The network address input (e.g., "http://192.168.1.1/" or "wled.local").
     /// - Returns: The NSManagedObjectID of the device (to be retrieved safely on the main thread).
-    func fetchAndUpsertDevice(address: String) async throws -> NSManagedObjectID {
-        logger.debug("Trying to create/update device at: \(address)")
+    func fetchAndUpsertDevice(rawAddress: String) async throws -> NSManagedObjectID {
+        let cleanAddress = sanitize(address: rawAddress)
 
-        // TODO: Sanitize URL, adding a device with a protocol (ex: http) breaks the websockets and looks weird in the UI, strip protocol.
-        let info = try await getDeviceInfo(address: address)
+        logger.debug("Initiating contact with: \(cleanAddress)")
+        let info = try await fetchDeviceInfo(address: cleanAddress)
 
         guard let macAddress = info.mac, !macAddress.isEmpty else {
-            logger.error("Could not retrieve MAC address for device at \(address)")
+            logger.error("Could not retrieve MAC address for device at \(cleanAddress)")
             throw ServiceError.missingMacAddress
         }
 
-        // Perform Core Data operations on a background context
-        return try await persistenceController.container.performBackgroundTask { context in
-            context.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
-
-            // Try to find existing device
-            let request: NSFetchRequest<Device> = Device.fetchRequest()
-            request.predicate = NSPredicate(format: "macAddress == %@", macAddress)
-            request.fetchLimit = 1
-
-            let device: Device
-
-            if let existingDevice = try? context.fetch(request).first {
-                if existingDevice.address == address && existingDevice.originalName == info.name {
-                    self.logger.debug("Device already exists for MAC and is unchanged: \(macAddress)")
-                    device = existingDevice
-                } else {
-                    self.logger.debug("Device already exists for MAC but is different: \(macAddress). Updating.")
-                    existingDevice.address = address
-                    existingDevice.originalName = info.name
-                    device = existingDevice
-                }
-            } else {
-                self.logger.debug("No existing device found for MAC: \(macAddress). Creating new entry.")
-                device = Device(context: context)
-                device.macAddress = macAddress
-                device.address = address
-                device.originalName = info.name
-                device.isHidden = false
-                // Initialize other default properties if needed
-            }
-
-            if context.hasChanges {
-                try context.save()
-            }
-
-            return device.objectID
-        }
+        return try await upsertDevice(macAddress: macAddress, hostname: cleanAddress, name: info.name)
     }
 
     /// Attempts to identify and update a device using only the MAC address from mDNS/Discovery.
@@ -92,9 +61,10 @@ actor DeviceFirstContactService {
     ///   - address: The new IP address.
     /// - Returns: true if the device was found and processed (updated or skipped), false otherwise.
     func tryUpdateAddress(macAddress: String?, address: String) async -> Bool {
-        guard let macAddress, !macAddress.isEmpty else {
-            return false
-        }
+        guard let macAddress, !macAddress.isEmpty else { return false }
+
+        // Ensure the address provided by mDNS is clean before saving
+        let cleanAddress = sanitize(address: address)
 
         return await persistenceController.container.performBackgroundTask { context in
             let request: NSFetchRequest<Device> = Device.fetchRequest()
@@ -107,50 +77,94 @@ actor DeviceFirstContactService {
 
             if existingDevice.address != address {
                 self.logger.info("Fast update: IP changed for \(existingDevice.originalName ?? "Unknown") (\(macAddress))")
-                existingDevice.address = address
+                existingDevice.address = cleanAddress
 
                 do {
                     try context.save()
                 } catch {
                     self.logger.error("Failed to save fast update: \(error.localizedDescription)")
                 }
-            } else {
-                self.logger.debug("Fast update: Device IP unchanged for \(macAddress)")
             }
-
             return true
         }
     }
 
     // MARK: - Private Helpers
 
+    /// Removes schemes (http/https) and trailing slashes to ensure we store a clean hostname/IP.
+    private func sanitize(address: String) -> String {
+        var result = address
+
+        // Remove scheme if present
+        if let range = result.range(of: "://") {
+            result = String(result[range.upperBound...])
+        }
+
+        // Remove trailing slashes
+        while result.hasSuffix("/") {
+            result.removeLast()
+        }
+
+        return result
+    }
+
     /// Fetches device information from the specified address.
-    private func getDeviceInfo(address: String) async throws -> Info {
+    private func fetchDeviceInfo(address: String) async throws -> Info {
         // Construct URL, ensuring http scheme and json/info path
-        var urlString = address
-        if !urlString.lowercased().hasPrefix("http") {
-            urlString = "http://\(address)"
-        }
+        let urlString = "http://\(address)/json/info"
 
-        // Remove trailing slash if present before appending path
-        if urlString.hasSuffix("/") {
-            urlString = String(urlString.dropLast())
-        }
-
-        guard let url = URL(string: "\(urlString)/json/info") else {
+        guard let url = URL(string: urlString) else {
             throw ServiceError.invalidURL
         }
 
         var request = URLRequest(url: url)
-        request.timeoutInterval = 5.0 // Short timeout for discovery checks
+        request.timeoutInterval = 10
         request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
 
         do {
-            let (data, _) = try await URLSession.shared.data(for: request)
-            let info = try JSONDecoder().decode(Info.self, from: data)
-            return info
+            let (data, _) = try await urlSession.data(for: request)
+            return try JSONDecoder().decode(Info.self, from: data)
         } catch {
             throw ServiceError.networkError(error)
+        }
+    }
+
+    /// Handles the Core Data logic to find, update, or create the device.
+    private func upsertDevice(macAddress: String, hostname: String, name: String?) async throws -> NSManagedObjectID {
+        return try await persistenceController.container.performBackgroundTask { context in
+            context.mergePolicy = NSMergePolicy.mergeByPropertyObjectTrump
+
+            let request: NSFetchRequest<Device> = Device.fetchRequest()
+            request.predicate = NSPredicate(format: "macAddress == %@", macAddress)
+            request.fetchLimit = 1
+
+            let device: Device
+
+            if let existingDevice = try? context.fetch(request).first {
+                // Check if updates are actually needed to minimize Core Data thrashing
+                if existingDevice.address == hostname && existingDevice.originalName == name {
+                    self.logger.debug("Device exists and is up to date: \(macAddress)")
+                    device = existingDevice
+                } else {
+                    self.logger.debug("Updating existing device: \(macAddress)")
+                    existingDevice.address = hostname
+                    existingDevice.originalName = name
+                    device = existingDevice
+                }
+            } else {
+                self.logger.info("Creating new device: \(macAddress)")
+                device = Device(context: context)
+                device.macAddress = macAddress
+                device.address = hostname
+                device.originalName = name
+                device.isHidden = false
+            }
+
+            if context.hasChanges {
+                try context.save()
+            }
+
+            return device.objectID
         }
     }
 }

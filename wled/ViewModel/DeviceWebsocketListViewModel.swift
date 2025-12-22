@@ -244,7 +244,7 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
                 if await !deviceFirstContactService
                     .tryUpdateAddress(macAddress: macAddress, address: address) {
                     _ = try await deviceFirstContactService
-                        .fetchAndUpsertDevice(address: address)
+                        .fetchAndUpsertDevice(rawAddress: address)
                 }
             } catch {
                 print("deviceDiscovered: Failed to upsert device: \(error)")

@@ -51,7 +51,9 @@ final class DeviceAddViewModel: ObservableObject {
     private func findDevice() async {
         currentStep = .adding
         do {
-            let newDeviceId = try await firstContactService.fetchAndUpsertDevice(address: address)
+            let newDeviceId = try await firstContactService.fetchAndUpsertDevice(
+                rawAddress: address
+            )
             let viewContext = PersistenceController.shared.container.viewContext
             if let newDevice = viewContext.object(with: newDeviceId) as? Device {
                 currentStep = .success(device: newDevice)
