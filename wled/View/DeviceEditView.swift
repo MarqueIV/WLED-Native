@@ -161,10 +161,6 @@ struct DeviceEditView: View {
         
         device.device.skipUpdateTag = ""
         withAnimation {
-            Task {
-                // TODO: #statelessDevice migration fix this?
-                // await device.requestManager.addRequest(WLEDRefreshRequest(context: viewContext))
-            }
             isCheckingForUpdates = false
         }
     }
