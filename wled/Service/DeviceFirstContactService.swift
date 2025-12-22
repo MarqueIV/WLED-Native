@@ -17,10 +17,21 @@ actor DeviceFirstContactService {
     private let urlSession: URLSession
     private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "com.wled", category: "DeviceFirstContactService")
 
-    enum ServiceError: Error {
+    enum ServiceError: LocalizedError {
         case invalidURL
         case missingMacAddress
         case networkError(Error)
+
+        var errorDescription: String? {
+            switch self {
+            case .invalidURL:
+                return NSLocalizedString("The device address is invalid.", comment: "Invalid URL error")
+            case .missingMacAddress:
+                return NSLocalizedString("The device did not report a valid MAC address.", comment: "Missing MAC error")
+            case .networkError(let error):
+                return String(format: NSLocalizedString("Network error: %@", comment: "Network error"), error.localizedDescription)
+            }
+        }
     }
 
     /// - Parameters:
