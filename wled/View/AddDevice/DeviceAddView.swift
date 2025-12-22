@@ -77,8 +77,6 @@ struct DeviceAddStep1FormView: View {
                         viewModel.submitCreateDevice()
                     }
                 }
-            // TODO: The error message should be cleared when the user starts
-            // typing and the field becomes valid again
             if !errorMessage.isEmpty {
                 Text(errorMessage)
                     .foregroundStyle(.red)
