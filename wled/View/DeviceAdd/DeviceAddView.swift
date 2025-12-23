@@ -25,21 +25,17 @@ struct DeviceAddView: View {
             }
             .padding()
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button(role: .cancel) {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", systemImage: "xmark") {
                         dismiss()
-                    } label: {
-                        Image(systemName: "xmark")
                     }
                 }
                 if (viewModel.currentStep.isForm) {
-                    ToolbarItem {
-                        Button(action: {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Add", systemImage: "checkmark") {
                             withAnimation {
                                 viewModel.submitCreateDevice()
                             }
-                        }) {
-                            Image(systemName: "checkmark")
                         }
                     }
                 }
