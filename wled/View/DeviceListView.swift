@@ -107,6 +107,7 @@ struct DeviceListView: View {
         }
         .listStyle(.plain)
         .refreshable(action: refreshList)
+        .navigationTitle("Device List")
     }
 
     @ViewBuilder

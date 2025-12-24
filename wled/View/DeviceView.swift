@@ -52,10 +52,8 @@ struct DeviceView: View {
             }
         }
         ToolbarItem(placement: .automatic) {
-            Button {
+            Button("Refresh", systemImage: "arrow.clockwise") {
                 shouldWebViewRefresh = true
-            } label: {
-                Image(systemName: "arrow.clockwise")
             }
         }
     }
