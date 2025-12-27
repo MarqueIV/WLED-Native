@@ -150,6 +150,9 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
             let newName = info.info.name
             let newVersion = info.info.version ?? ""
 
+            // Flag to determine if we need an immediate disk write
+            var structuralChange = false
+
             var currentBranch = device.branchValue
             if currentBranch == Branch.unknown {
                 if newVersion.contains("-b") {
@@ -158,12 +161,18 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
                     currentBranch = Branch.stable
                 }
                 device.branchValue = currentBranch
+                structuralChange = true
+            }
+            if device.originalName != newName {
+                device.originalName = newName
+                structuralChange = true
             }
 
-            device.originalName = newName
+            // Update transient data (Updates UI in-memory, but no disk save needed yet)
             device.lastSeen = Int64(Date().timeIntervalSince1970 * 1000)
 
-            if self.context.hasChanges {
+            // Only perform disk I/O if important data changed
+            if structuralChange && self.context.hasChanges {
                 try? self.context.save()
             }
         }
@@ -193,6 +202,11 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
         print("[ListVM] onPause: Pausing all connections.")
         isPaused = true
         activeClients.values.forEach { $0.client.disconnect() }
+        
+        // SAVE: Persist "lastSeen" and other pending changes when app goes to background
+        if context.hasChanges {
+            try? context.save()
+        }
     }
     
     func onResume() {
