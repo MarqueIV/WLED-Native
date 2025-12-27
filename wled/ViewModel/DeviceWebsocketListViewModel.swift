@@ -38,14 +38,6 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     init(context: NSManagedObjectContext) {
         self.context = context
         super.init()
-        
-        setupFetchedResultsController()
-        
-        // Initial population of clients
-        try? frc.performFetch()
-        if let objects = frc.fetchedObjects {
-            updateClients(with: objects)
-        }
 
         self.discoveryService = DiscoveryService{ [weak self] address, macAddress in
             Task { @MainActor [weak self] in
@@ -57,7 +49,23 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
         self.showOfflineDevicesLast = UserDefaults.standard.bool(forKey: "showOfflineDevicesLast")
         self.showHiddenDevices = UserDefaults.standard.bool(forKey: "showHiddenDevices")
     }
-    
+
+    // MARK: - Setup and loading
+
+    /// Call this when the view appears to initialize data and connections
+    func load() {
+        // Prevent double loading if already set up
+        guard frc == nil else { return }
+
+        setupFetchedResultsController()
+
+        // Initial population of clients
+        try? frc.performFetch()
+        if let objects = frc.fetchedObjects {
+            updateClients(with: objects)
+        }
+    }
+
     // MARK: - Core Data Setup
     
     private func setupFetchedResultsController() {

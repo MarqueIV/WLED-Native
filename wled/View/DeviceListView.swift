@@ -6,8 +6,8 @@ import CoreData
 struct DeviceListView: View {
 
     // MARK: - Properties
+    @StateObject private var viewModel = DeviceWebsocketListViewModel(context: PersistenceController.shared.container.viewContext)
 
-    @StateObject private var viewModel: DeviceWebsocketListViewModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var selection: DeviceWithState? = nil
     @State private var addDeviceButtonActive: Bool = false
@@ -19,12 +19,6 @@ struct DeviceListView: View {
     /// Amount of time after a device becomes offline before it is considered offline.
     private let offlineGracePeriod: TimeInterval = 60
     private let timer = Timer.publish(every: 5, on: .main, in: .common).autoconnect()
-
-    init() {
-        // Inject the view context into the ViewModel
-        let context = PersistenceController.shared.container.viewContext
-        _viewModel = StateObject(wrappedValue: DeviceWebsocketListViewModel(context: context))
-    }
 
     // MARK: - Computed Data
 
@@ -229,6 +223,7 @@ struct DeviceListView: View {
     }
 
     private func appearAction() {
+        viewModel.load()
         viewModel.onResume()
         viewModel.startDiscovery()
     }
