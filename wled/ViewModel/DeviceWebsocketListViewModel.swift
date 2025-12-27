@@ -142,14 +142,14 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
             let newName = info.info.name
             let newVersion = info.info.version ?? ""
 
-            var currentBranch = device.branch ?? ""
-            if currentBranch.isEmpty || currentBranch == Branch.unknown.rawValue {
+            var currentBranch = device.branchValue
+            if currentBranch == Branch.unknown {
                 if newVersion.contains("-b") {
-                    currentBranch = Branch.beta.rawValue
+                    currentBranch = Branch.beta
                 } else {
-                    currentBranch = Branch.stable.rawValue
+                    currentBranch = Branch.stable
                 }
-                device.branch = currentBranch
+                device.branchValue = currentBranch
             }
 
             device.originalName = newName
