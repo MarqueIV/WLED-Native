@@ -7,8 +7,6 @@ struct DeviceEditView: View {
     @StateObject private var viewModel: DeviceEditViewModel
     @ObservedObject private var device: DeviceWithState
 
-    let unknownVersion = String(localized: "unknown_version")
-
     init(device: DeviceWithState) {
         let context = device.device.managedObjectContext ?? PersistenceController.shared.container.viewContext
         _viewModel = StateObject(wrappedValue: DeviceEditViewModel(device: device, context: context))
@@ -55,45 +53,17 @@ struct DeviceEditView: View {
                 .padding(.bottom)
 
                 if (device.stateInfo != nil) {
-                    // TODO: Update this to be its own "helicopter" view
+                    // TODO: extract the appearance of this VStack to be re-useable (Card)
                     VStack(alignment: .leading) {
                         if ((device.availableUpdateVersion ?? "").isEmpty) {
-                            Text("Your device is up to date")
-                            Text(
-                                "Version \(device.stateInfo?.info.version ?? unknownVersion)"
-                            )
-                            HStack {
-                                Button(action: {
-                                    Task {
-                                        await viewModel.checkForUpdate()
-                                    }
-                                }) {
-                                    Text(viewModel.isCheckingForUpdates ? "Checking for Updates" : "Check for Update")
-                                }
-                                .buttonStyle(.bordered)
-                                .padding(.trailing)
-                                .disabled(viewModel.isCheckingForUpdates)
-                                ProgressView()
-                                    .opacity(viewModel.isCheckingForUpdates ? 1 : 0)
+                            DeviceNoUpdateAvailable(
+                                device: device,
+                                isCheckingForUpdates: viewModel.isCheckingForUpdates
+                            ) {
+                                await viewModel.checkForUpdate()
                             }
                         } else {
-                            HStack {
-                                Image(systemName: getUpdateIconName())
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: 30.0, height: 30.0)
-                                    .padding(.trailing)
-                                VStack(alignment: .leading) {
-                                    Text("Update Available")
-                                    Text("From \(device.stateInfo?.info.version ?? unknownVersion) to \(device.availableUpdateVersion ?? unknownVersion)")
-                                    NavigationLink {
-                                        DeviceUpdateDetails(device: device)
-                                    } label: {
-                                        Text("See Update")
-                                    }
-                                }
-                            }
-                            .buttonStyle(.borderedProminent)
+                            DeviceUpdateAvailable(device: device)
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -112,8 +82,67 @@ struct DeviceEditView: View {
         .navigationTitle("Edit Device")
         .navigationBarTitleDisplayMode(.large)
     }
+}
 
-    func getUpdateIconName() -> String {
+// MARK: - Device No Update Available
+
+struct DeviceNoUpdateAvailable: View {
+
+    @ObservedObject var device: DeviceWithState
+    let isCheckingForUpdates: Bool
+    let onCheckForUpdate: () async -> Void
+
+    var body: some View {
+        Text("Your device is up to date")
+        Text(
+            "Version \(device.stateInfo?.info.version ?? String(localized: "unknown_version"))"
+        )
+        HStack {
+            Button(action: {
+                Task {
+                    await onCheckForUpdate()
+                }
+            }) {
+                Text(isCheckingForUpdates ? "Checking for Updates" : "Check for Update")
+            }
+            .buttonStyle(.bordered)
+            .padding(.trailing)
+            .disabled(isCheckingForUpdates)
+            ProgressView()
+                .opacity(isCheckingForUpdates ? 1 : 0)
+        }
+    }
+}
+
+// MARK: - Device Update Available
+
+struct DeviceUpdateAvailable: View {
+
+    @ObservedObject var device: DeviceWithState
+
+    private let unknownVersion = String(localized: "unknown_version")
+
+    var body: some View {
+        HStack {
+            Image(systemName: getUpdateIconName())
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+                .frame(width: 30.0, height: 30.0)
+                .padding(.trailing)
+            VStack(alignment: .leading) {
+                Text("Update Available")
+                Text("From \(device.stateInfo?.info.version ?? unknownVersion) to \(device.availableUpdateVersion ?? unknownVersion)")
+                NavigationLink {
+                    DeviceUpdateDetails(device: device)
+                } label: {
+                    Text("See Update")
+                }
+            }
+        }
+        .buttonStyle(.borderedProminent)
+    }
+
+    private func getUpdateIconName() -> String {
         if #available(iOS 17.0, *) {
             return "arrow.down.circle.dotted"
         } else {
