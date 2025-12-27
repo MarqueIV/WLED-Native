@@ -1,4 +1,3 @@
-
 import SwiftUI
 
 struct DeviceEditView: View {
@@ -73,6 +72,10 @@ struct DeviceEditView: View {
                     .animation(.default, value: device.availableUpdateVersion)
                     .animation(.default, value: viewModel.isCheckingForUpdates)
                 }
+
+                Text("Mac Address: \(device.device.macAddress ?? "Unkown")")
+                    .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                 Spacer()
             }
@@ -170,3 +173,4 @@ struct DeviceEditView_Previews: PreviewProvider {
             .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
     }
 }
+
