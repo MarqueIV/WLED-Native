@@ -59,10 +59,11 @@ struct DeviceView: View {
     }
     
     func getDeviceAddress() -> URL? {
-        guard let deviceAddress = device.device.address else {
+        guard let deviceAddress = device.device.address,
+                let url = URL(string: "http://\(deviceAddress)") else {
             return nil
         }
-        return URL(string: "http://\(deviceAddress)")!
+        return url
     }
     
     func getToolbarBadgeCount() -> Int {
