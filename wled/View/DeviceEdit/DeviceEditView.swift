@@ -154,11 +154,9 @@ struct DeviceUpdateAvailable: View {
     }
 }
 
-struct DeviceEditView_Previews: PreviewProvider {
-    static var previews: some View {
-        NavigationView {
-            DeviceEditView(device: PreviewData.onlineDevice)
-        }
+#Preview {
+    NavigationView {
+        DeviceEditView(device: PreviewData.onlineDevice)
     }
 }
 
