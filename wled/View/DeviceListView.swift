@@ -172,6 +172,7 @@ struct DeviceListView: View {
             }
             .frame(maxWidth: 200)
         }
+        // TODO: Move the main ellipsis menu to a bottomSheet like the Fitness app
         ToolbarItem {
             Menu {
                 Section {

@@ -42,6 +42,7 @@ struct DeviceView: View {
     @ToolbarContentBuilder
     var toolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
+            // TODO: Fix the settings button, it doesn't have text (a11y) and clicking on the far right of it doesn't fully work
             NavigationLink {
                 DeviceEditView(device: device)
             } label: {
