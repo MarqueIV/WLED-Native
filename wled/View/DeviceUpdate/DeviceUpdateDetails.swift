@@ -4,6 +4,9 @@ import CoreData
 import MarkdownUI
 
 struct DeviceUpdateDetails: View {
+    // TODO: Pass the version to display instead of only showing the latest one
+    // This will allow support for downgrading or chosing a different version
+    // in the future.
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) var dismiss
     @ObservedObject var device: DeviceWithState

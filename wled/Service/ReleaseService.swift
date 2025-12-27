@@ -34,7 +34,7 @@ class ReleaseService {
             return latestTagName
         }
         
-        let versionCompare = latestTagName.dropFirst().compare(versionName, options: .numeric)
+        let versionCompare = latestTagName.compare(versionName, options: .numeric)
         return versionCompare == .orderedDescending ? latestTagName : ""
     }
     
@@ -96,7 +96,12 @@ class ReleaseService {
     
     private func createVersion(release: Release) -> Version {
         let version = Version(context: context)
-        version.tagName = release.tagName
+        // Strip 'v' prefix if present to normalize data with the WLED API
+        if release.tagName.hasPrefix("v") {
+            version.tagName = String(release.tagName.dropFirst())
+        } else {
+            version.tagName = release.tagName
+        }
         version.name = release.name
         version.versionDescription = release.body
         version.isPrerelease = release.prerelease
