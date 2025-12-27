@@ -19,7 +19,7 @@ struct DeviceUpdateDetails: View {
     var body: some View {
         ZStack {
             ScrollView {
-                Markdown(versionViewModel.version?.versionDescription ?? "[Unknown Error]")
+                Markdown(versionViewModel.version?.versionDescription ?? String(localized: "[Unknown Error]"))
                     .padding()
             }
         }

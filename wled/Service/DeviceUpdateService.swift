@@ -11,12 +11,18 @@ enum UpdateError: LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .assetNotDetermined: return "Could not determine the correct firmware for this device."
-        case .fileNotFound: return "Firmware file not found on disk."
-        case .invalidURL: return "The device URL is invalid."
-        case .invalidResponse: return "Received an invalid response from the device."
-        case .uploadFailed(let code): return "Update failed with status code: \(code)"
-        case .networkError(let error): return error.localizedDescription
+        case .assetNotDetermined:
+            return String(localized: "Could not determine the correct firmware for this device.")
+        case .fileNotFound:
+            return String(localized: "Firmware file not found on disk.")
+        case .invalidURL:
+            return String(localized: "The device URL is invalid.")
+        case .invalidResponse:
+            return String(localized: "Received an invalid response from the device.")
+        case .uploadFailed(let code):
+            return String(localized: "Update failed with status code: \(code)")
+        case .networkError(let error):
+            return error.localizedDescription
         }
     }
 }

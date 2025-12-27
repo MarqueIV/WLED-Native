@@ -25,11 +25,11 @@ actor DeviceFirstContactService {
         var errorDescription: String? {
             switch self {
             case .invalidURL:
-                return NSLocalizedString("The device address is invalid.", comment: "Invalid URL error")
+                return String(localized:"The device address is invalid.", comment: "Invalid URL error")
             case .missingMacAddress:
-                return NSLocalizedString("The device did not report a valid MAC address.", comment: "Missing MAC error")
+                return String(localized:"The device did not report a valid MAC address.", comment: "Missing MAC error")
             case .networkError(let error):
-                return String(format: NSLocalizedString("Network error: %@", comment: "Network error"), error.localizedDescription)
+                return String(localized: "Network error: \(error.localizedDescription)")
             }
         }
     }
