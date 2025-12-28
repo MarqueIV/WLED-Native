@@ -42,14 +42,12 @@ struct DeviceView: View {
     @ToolbarContentBuilder
     var toolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
-            // TODO: Fix the settings button, it doesn't have text (a11y) and clicking on the far right of it doesn't fully work
             NavigationLink {
                 DeviceEditView(device: device)
             } label: {
-                Image(systemName: "gear")
-            }
-            .overlay(alignment: .bottomTrailing) {
-                ToolbarBadge(value: .constant(getToolbarBadgeCount()))
+                Label("Settings", systemImage: "gear")
+                    // This badge only works on iOS 26+, but that's fine.
+                    .badge(getToolbarBadgeCount())
             }
         }
         ToolbarItem(placement: .automatic) {

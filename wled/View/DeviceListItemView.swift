@@ -22,7 +22,7 @@ extension GroupBoxStyle where Self == DeviceGroupBoxStyle {
 }
 
 
-
+// TODO: Fix device selected appearance on tablet
 struct DeviceListItemView: View {
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.colorScheme) var colorScheme
