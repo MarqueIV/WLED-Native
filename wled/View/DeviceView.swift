@@ -41,6 +41,9 @@ struct DeviceView: View {
     
     @ToolbarContentBuilder
     var toolbar: some ToolbarContent {
+        ToolbarItem(placement: .principal) {
+            DeviceInfoTwoRows(device: device)
+        }
         ToolbarItem(placement: .navigation) {
             NavigationLink {
                 DeviceEditView(device: device)
