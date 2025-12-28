@@ -2,6 +2,9 @@
 import SwiftUI
 import CoreData
 
+// TODO: Improve first load UX on tablet, it shows "Select A Device" with
+// nothing else. Maybe it should auto-select the first device? or save the last
+// selected device in SceneStorage or something.
 
 struct DeviceListView: View {
 
