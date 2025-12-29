@@ -18,6 +18,7 @@ struct WebView: UIViewRepresentable {
         print("WebView makeUIView")
         let webView = WKWebView()
 
+        webView.customUserAgent = "wled-native/1"
         webView.isOpaque = false
         webView.backgroundColor = UIColor.clear
         webView.uiDelegate = context.coordinator
