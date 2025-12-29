@@ -65,7 +65,7 @@ final class DeviceAddViewModel: ObservableObject {
     }
 
     // MARK: - State enum
-    enum Step {
+    enum Step: Equatable {
         case form(errorMessage: String = "")
         case adding
         case success(device: Device)

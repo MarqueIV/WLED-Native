@@ -24,6 +24,7 @@ struct DeviceAddView: View {
                 Spacer()
             }
             .padding()
+            .animation(.easeInOut, value: viewModel.currentStep)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", systemImage: "xmark") {

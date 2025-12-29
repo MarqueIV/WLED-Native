@@ -7,7 +7,7 @@ struct DeviceView: View {
 
     @State var showDownloadFinished = false
     @State var shouldWebViewRefresh = false
-    
+
     @State var showEditDeviceView = false
 
     var body: some View {
@@ -15,8 +15,10 @@ struct DeviceView: View {
             WebView(url: getDeviceAddress(), reload: $shouldWebViewRefresh) { filePathDestination in
                 withAnimation {
                     showDownloadFinished = true
-                    Task {
-                        try await Task.sleep(for: .seconds(3))
+                }
+                Task {
+                    try await Task.sleep(for: .seconds(3))
+                    withAnimation {
                         showDownloadFinished = false
                     }
                 }
@@ -31,14 +33,16 @@ struct DeviceView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 15))
                         .padding(.bottom)
                 }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .zIndex(1) // Ensures it stays on top during transition
             }
         }
         .navigationTitle(device.device.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { toolbar }
     }
-    
-    
+
+
     @ToolbarContentBuilder
     var toolbar: some ToolbarContent {
         ToolbarItem(placement: .principal) {
@@ -49,7 +53,7 @@ struct DeviceView: View {
                 DeviceEditView(device: device)
             } label: {
                 Label("Settings", systemImage: "gear")
-                    // This badge only works on iOS 26+, but that's fine.
+                // This badge only works on iOS 26+, but that's fine.
                     .badge(getToolbarBadgeCount())
             }
         }
@@ -59,15 +63,15 @@ struct DeviceView: View {
             }
         }
     }
-    
+
     func getDeviceAddress() -> URL? {
         guard let deviceAddress = device.device.address,
-                let url = URL(string: "http://\(deviceAddress)") else {
+              let url = URL(string: "http://\(deviceAddress)") else {
             return nil
         }
         return url
     }
-    
+
     func getToolbarBadgeCount() -> Int {
         return device.hasUpdateAvailable ? 1 : 0
     }

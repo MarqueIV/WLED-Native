@@ -39,12 +39,15 @@ struct DeviceListItemView: View {
             )
         }
         .applyDeviceSelectionStyle(isSelected: isSelected, color: fixedDeviceColor)
+        .animation(.linear(duration: 0.3), value: fixedDeviceColor)
         .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
         .onAppear() {
             brightness = Double(device.stateInfo?.state.brightness ?? 0)
         }
         .onChange(of: device.stateInfo?.state.brightness) { brightness in
-            self.brightness = Double(device.stateInfo?.state.brightness ?? 0)
+            withAnimation(.spring()) {
+                self.brightness = Double(device.stateInfo?.state.brightness ?? 0)
+            }
         }
     }
 
