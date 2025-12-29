@@ -28,7 +28,7 @@ struct DeviceView: View {
                         .font(.title3)
                         .padding()
                         .background(.regularMaterial)
-                        .cornerRadius(15)
+                        .clipShape(RoundedRectangle(cornerRadius: 15))
                         .padding(.bottom)
                 }
             }

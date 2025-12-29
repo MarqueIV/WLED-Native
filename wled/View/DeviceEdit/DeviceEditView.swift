@@ -68,7 +68,7 @@ struct DeviceEditView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding()
                     .background(Color(UIColor.secondarySystemBackground))
-                    .cornerRadius(8)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
                     .animation(.default, value: device.availableUpdateVersion)
                     .animation(.default, value: viewModel.isCheckingForUpdates)
                 }
