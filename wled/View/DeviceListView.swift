@@ -164,23 +164,7 @@ struct DeviceListView: View {
                     viewModel.setBrightness(for: device, brightness: brightness)
                 }
             )
-            .background(
-                Group {
-                    if horizontalSizeClass == .compact {
-                        // iPhone: Use a real NavigationLink to trigger the "Push" animation.
-                        // We link directly to DeviceView since we are bypassing the split-view selection logic.
-                        NavigationLink(destination: DeviceView(device: device)) {
-                            EmptyView()
-                        }
-                        .opacity(0)
-                    }
-                    // iPad: No NavigationLink (prevents blue ring/system styling).
-                }
-            )
             .onTapGesture {
-                // Both: Update the selection state.
-                // On iPad: This is the ONLY trigger for the detail view.
-                // On iPhone: This runs simultaneously with the NavigationLink to keep state in sync.
                 withAnimation {
                     selection = device
                 }
