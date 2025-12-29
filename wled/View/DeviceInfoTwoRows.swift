@@ -51,12 +51,16 @@ struct DeviceInfoTwoRows: View {
                         .minimumScaleFactor(0.6)
                 }
                 if (device.device.isHidden) {
-                    Label("(Hidden)", systemImage: "eye.slash")
-                        .lineLimit(1)
-                        .foregroundStyle(.secondary)
-                        .lineSpacing(0)
-                        .truncationMode(.tail)
-                        .font(.caption2)
+                    HStack(spacing: 3) {
+                        Image(systemName: "eye.slash")
+                            .accessibilityHidden(true)
+                        Text("(Hidden)")
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("(Hidden)")
                 }
             }
             .font(.subheadline.leading(.tight))
