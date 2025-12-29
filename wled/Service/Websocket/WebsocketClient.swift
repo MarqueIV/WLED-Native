@@ -110,7 +110,7 @@ class WebsocketClient: NSObject, ObservableObject, URLSessionWebSocketDelegate {
         print("\(tag): Reconnecting to \(deviceState.device.address ?? "") in \(delayTime)s")
         
         Task {
-            try? await Task.sleep(nanoseconds: UInt64(delayTime * 1_000_000_000))
+            try await Task.sleep(for: .seconds(delayTime))
             if !isManuallyDisconnected && !isConnecting {
                 self.retryCount += 1
                 self.connect()

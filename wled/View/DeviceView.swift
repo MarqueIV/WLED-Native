@@ -16,7 +16,7 @@ struct DeviceView: View {
                 withAnimation {
                     showDownloadFinished = true
                     Task {
-                        try await Task.sleep(nanoseconds: UInt64(3 * Double(NSEC_PER_SEC)))
+                        try await Task.sleep(for: .seconds(3))
                         showDownloadFinished = false
                     }
                 }
