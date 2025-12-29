@@ -77,17 +77,26 @@ struct DeviceInfoTwoRows: View {
     func getSignalIcon(isOnline: Bool, signalStrength: Int?) -> some View {
         let icon = !isOnline || signalStrength == nil || signalStrength == 0 ? "wifi.slash" : "wifi"
 
-        Image(systemName: icon, variableValue: getSignalValue(signalStrength: signalStrength))
-            .symbolRenderingMode(.hierarchical)
-            .font(.caption2)
+        if #available(iOS 17.0, *) {
+            Image(systemName: icon, variableValue: getSignalValue(signalStrength: signalStrength))
+                .symbolRenderingMode(.hierarchical)
+                .font(.caption2)
+            // iOS 17: Animates the signal bars filling up/down
+                .contentTransition(.symbolEffect(.replace))
+        } else {
+            // Fallback for iOS 16
+            Image(systemName: icon, variableValue: getSignalValue(signalStrength: signalStrength))
+                .symbolRenderingMode(.hierarchical)
+                .font(.caption2)
+        }
     }
 
     func getSignalValue(signalStrength: Int?) -> Double {
         if let signalStrength {
-            if (signalStrength >= -70) {
+            if (signalStrength >= -67) {
                 return 1
             }
-            if (signalStrength >= -85) {
+            if (signalStrength >= -80) {
                 return 0.64
             }
             if (signalStrength >= -100) {
