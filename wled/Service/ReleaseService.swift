@@ -2,13 +2,13 @@ import Foundation
 import CoreData
 
 class ReleaseService {
-    
+
     let context: NSManagedObjectContext
-    
+
     init(context: NSManagedObjectContext) {
         self.context = context
     }
-    
+
     /**
      * If a new version is available, returns the version tag of it.
      *
@@ -27,27 +27,33 @@ class ReleaseService {
         guard let latestTagName = latestVersion?.tagName, latestTagName != ignoreVersion else {
             return ""
         }
-        
+
         // If device is currently on a beta branch but the user selected a stable branch,
         // show the latest version as an update so that the user can get out of beta.
         if (branch == .stable && versionName.contains("-b")) {
             return latestTagName
         }
-        
-        let versionCompare = latestTagName.dropFirst().compare(versionName, options: .numeric)
+
+        let versionCompare = latestTagName.compare(versionName, options: .numeric)
         return versionCompare == .orderedDescending ? latestTagName : ""
     }
-    
-    
+
+
     func getLatestVersion(branch: Branch) -> Version? {
         let fetchRequest = Version.fetchRequest()
         fetchRequest.fetchLimit = 1
         fetchRequest.sortDescriptors = [NSSortDescriptor(key: "publishedDate", ascending: false)]
-        
+        var predicates = [NSPredicate]()
+
+        // For now, nightly branches are not supported.
+        predicates.append(NSPredicate(format: "tagName != %@", "nightly"))
+
         if (branch == Branch.stable) {
-            fetchRequest.predicate = NSPredicate(format: "isPrerelease == %@", "0")
+            predicates.append(NSPredicate(format: "isPrerelease == %@", NSNumber(value: false)))
         }
-        
+
+        fetchRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
+
         do {
             let versions = try context.fetch(fetchRequest)
             return versions.first
@@ -58,16 +64,16 @@ class ReleaseService {
             fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
         }
     }
-    
-    
+
+
     func refreshVersions() async {
         let allReleases = await WLEDRepoApi().getAllReleases()
-        
+
         guard !allReleases.isEmpty else {
             print("Did not find any releases")
             return
         }
-        
+
         context.performAndWait {
             // Delete existing versions first
             let fetchRequest = Version.fetchRequest()
@@ -76,7 +82,7 @@ class ReleaseService {
             for version in versions ?? [] {
                 context.delete(version)
             }
-            
+
             // Create new versions
             for release in allReleases {
                 let version = createVersion(release: release)
@@ -91,23 +97,28 @@ class ReleaseService {
             }
         }
     }
-    
-    
-    
+
+
+
     private func createVersion(release: Release) -> Version {
         let version = Version(context: context)
-        version.tagName = release.tagName
+        // Strip 'v' prefix if present to normalize data with the WLED API
+        if release.tagName.hasPrefix("v") {
+            version.tagName = String(release.tagName.dropFirst())
+        } else {
+            version.tagName = release.tagName
+        }
         version.name = release.name
         version.versionDescription = release.body
         version.isPrerelease = release.prerelease
         version.htmlUrl = release.htmlUrl
-        
+
         let dateFormatter = ISO8601DateFormatter()
         version.publishedDate = dateFormatter.date(from: release.publishedAt)
-        
+
         return version
     }
-    
+
     private func createAssetsForVersion(version: Version, release: Release) -> [Asset] {
         var assets = [Asset]()
         for releaseAsset in release.assets {

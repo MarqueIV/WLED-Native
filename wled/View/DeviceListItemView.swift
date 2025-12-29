@@ -1,9 +1,79 @@
 
 import SwiftUI
 
-private struct DeviceGroupBoxStyle: GroupBoxStyle {
+
+struct DeviceListItemView: View {
+    @Environment(\.managedObjectContext) private var viewContext
+    @Environment(\.colorScheme) var colorScheme
+    @ObservedObject var device: DeviceWithState
+
+    var isSelected: Bool = false
+
+    // MARK: - Actions
+    var onTogglePower: (Bool) -> Void
+    var onChangeBrightness: (Int) -> Void
+
+    @State private var brightness: Double = 0.0
+
+    var body: some View {
+        let fixedDeviceColor = fixColor(device.currentColor)
+
+        GroupBox {
+            HStack {
+                DeviceInfoTwoRows(device: device)
+
+                Toggle("Turn On/Off", isOn: isOnBinding)
+                    .labelsHidden()
+                    .frame(alignment: .trailing)
+            }
+
+            Slider(
+                value: $brightness,
+                in: 0.0...255.0,
+                onEditingChanged: { editing in
+                    // Call the brightness closure when dragging ends
+                    if !editing {
+                        onChangeBrightness(Int(brightness))
+                    }
+                }
+            )
+        }
+        .applyDeviceSelectionStyle(isSelected: isSelected, color: fixedDeviceColor)
+        .animation(.linear(duration: 0.3), value: fixedDeviceColor)
+        .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
+        .onAppear() {
+            brightness = Double(device.stateInfo?.state.brightness ?? 0)
+        }
+        .onChange(of: device.stateInfo?.state.brightness) { brightness in
+            withAnimation(.spring()) {
+                self.brightness = Double(device.stateInfo?.state.brightness ?? 0)
+            }
+        }
+    }
+
+    private var isOnBinding: Binding<Bool> {
+        Binding(get: {
+            device.stateInfo?.state.isOn ?? false
+        }, set: { isOn in
+            onTogglePower(isOn)
+        })
+    }
+
+    // Fixes the color if it is too dark or too bright depending of the dark/light theme
+    private func fixColor(_ color: Color) -> Color {
+        let uiColor = UIColor(color)
+        var h = CGFloat(0), s = CGFloat(0), b = CGFloat(0), a = CGFloat(0)
+        uiColor.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
+        b = colorScheme == .dark ? fmax(b, 0.2) : fmin(b, 0.75)
+        return Color(UIColor(hue: h, saturation: s, brightness: b, alpha: a))
+    }
+}
+
+// MARK: - DeviceGroupBoxStyle
+
+struct DeviceGroupBoxStyle: GroupBoxStyle {
     var deviceColor: Color
-    
+
     func makeBody(configuration: Configuration) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             configuration.label
@@ -11,211 +81,106 @@ private struct DeviceGroupBoxStyle: GroupBoxStyle {
         }
         .padding()
         .background(.thickMaterial, in: RoundedRectangle(cornerRadius: 12))
-        .background(deviceColor.opacity(0.4), in: RoundedRectangle(cornerRadius: 12))
+        .background(deviceColor, in: RoundedRectangle(cornerRadius: 12))
     }
 }
 
-private extension GroupBoxStyle where Self == DeviceGroupBoxStyle {
+extension GroupBoxStyle where Self == DeviceGroupBoxStyle {
     static func device(color: Color) -> DeviceGroupBoxStyle {
         .init(deviceColor: color)
     }
 }
 
-struct DeviceListItemView: View {
-    @Environment(\.managedObjectContext) private var viewContext
+// MARK: - DeviceSelectionStyle
+
+struct DeviceSelectionStyle: ViewModifier {
+    var isSelected: Bool
+    var color: Color
     @Environment(\.colorScheme) var colorScheme
-    @EnvironmentObject var device: Device
-    
-    @State private var isUserInput = true
-    @State private var brightness: Double = 0.0
-    
-    var body: some View {
-        GroupBox {
-            HStack {
-                VStack(alignment: .leading, spacing: 0) {
-                    HStack {
-                        Text(getDeviceDisplayName())
-                            .font(.headline.leading(.tight))
-                            .lineLimit(2)
-                        if hasUpdateAvailable() {
-                            Image(systemName: getUpdateIconName())
-                        }
-                    }
-                    HStack {
-                        Text(device.address ?? "")
-                            .lineLimit(1)
-                            .fixedSize()
-                            .font(.subheadline.leading(.tight))
-                            .lineSpacing(0)
-                        Image(uiImage: getSignalImage(isOnline: device.isOnline, signalStrength: Int(device.networkRssi)))
-                            .resizable()
-                            .renderingMode(.template)
-                            .foregroundColor(.primary)
-                            .aspectRatio(contentMode: .fit)
-                            .frame(maxHeight: 12)
-                        if (!device.isOnline) {
-                            Text("(Offline)")
-                                .lineLimit(1)
-                                .font(.subheadline.leading(.tight))
-                                .foregroundStyle(.secondary)
-                                .lineSpacing(0)
-                        }
-                        if (device.isHidden) {
-                            Image(systemName: "eye.slash")
-                                .resizable()
-                                .renderingMode(.template)
-                                .foregroundColor(.secondary)
-                                .aspectRatio(contentMode: .fit)
-                                .frame(maxHeight: 12)
-                            Text("(Hidden)")
-                                .lineLimit(1)
-                                .font(.subheadline.leading(.tight))
-                                .foregroundStyle(.secondary)
-                                .lineSpacing(0)
-                                .truncationMode(.tail)
-                        }
-                        if (device.isRefreshing) {
-                            ProgressView()
-                                .controlSize(.mini)
-                                .frame(maxHeight: 12, alignment: .trailing)
-                                .padding(.leading, 1)
-                                .padding(.trailing, 1)
-                        }
-                    }
-                    
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                
-                Toggle("Turn On/Off", isOn: Binding(get: {device.isPoweredOn}, set: {
-                    device.isPoweredOn = $0
-                    let postParam = WLEDStateChange(isOn: $0)
-                    
-                    Task {
-                        await device.requestManager.addRequest(WLEDChangeStateRequest(state: postParam, context: viewContext))
-                    }
-                }))
-                .labelsHidden()
-                .frame(alignment: .trailing)
-                .tint(colorFromHex(rgbValue: Int(device.color)))
-            }
-            
-            Slider(
-                value: $brightness,
-                in: 0...255,
-                onEditingChanged: { editing in
-                    
-                    if !editing {
-                        let postParam = WLEDStateChange(brightness: Int64(brightness))
-                        Task {
-                            await device.requestManager.addRequest(WLEDChangeStateRequest(state: postParam, context: viewContext))
-                        }
-                    }
-                }
+
+    func body(content: Content) -> some View {
+        content
+            .groupBoxStyle(DeviceGroupBoxStyle(deviceColor: backgroundColor))
+        // Prevent system from turning text white on selection
+            .foregroundStyle(.primary)
+        // Apply Tint/Accent for sliders/toggles
+            .tint(color)
+            .accentColor(color)
+        // Border
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(
+                        isSelected ? color : .clear,
+                        lineWidth: isSelected ? Style.selectedBorderWidth : Style.unselectedBorderWidth
+                    )
             )
-            .tint(colorFromHex(rgbValue: Int(device.color)))
-        }
-        .groupBoxStyle(.device(color: colorFromHex(rgbValue: Int(device.color))))
-        .listRowInsets(EdgeInsets(top: 4, leading: 8, bottom: 4, trailing: 8))
-        .onAppear() {
-            brightness = Double(device.brightness)
-        }
-        .onChange(of: device.brightness) { brightness in
-            self.brightness = Double(device.brightness)
-        }
+        // Glow effect
+            .shadow(color: glowColor, radius: Style.glowRadius, x: 0, y: 0)
     }
-    
-    func getSignalImage(isOnline: Bool, signalStrength: Int) -> UIImage {
-        let icon = !isOnline || signalStrength == 0 ? "wifi.slash" : "wifi"
-        var image: UIImage;
-        if #available(iOS 16.0, *) {
-            image = UIImage(
-                systemName: icon,
-                variableValue: getSignalValue(signalStrength: Int(device.networkRssi))
-            )!
-        } else {
-            image = UIImage(
-                systemName: icon
-            )!
-        }
-        image.applyingSymbolConfiguration(UIImage.SymbolConfiguration(hierarchicalColor: .systemBlue))
-        return image
+
+    // MARK: Helper properties
+
+    private var glowColor: Color {
+        guard isSelected else { return .clear }
+        let opacity = colorScheme == .dark ? Style.darkGlowOpacity : Style.lightGlowOpacity
+        return color.opacity(opacity)
     }
-    
-    func getDeviceDisplayName() -> String {
-        let emptyName = String(localized: "(New Device)")
-        guard let name = device.name else {
-            return emptyName
-        }
-        return name.isEmpty ? emptyName : name
+
+    private var backgroundColor: Color {
+        isSelected
+        ? color.opacity(Style.selectedOpacity)
+        : color.opacity(Style.unselectedOpacity)
     }
-    
-    func hasUpdateAvailable() -> Bool {
-        viewContext.performAndWait {
-            return !(device.latestUpdateVersionTagAvailable ?? "").isEmpty
-        }
-    }
-    
-    func getSignalValue(signalStrength: Int) -> Double {
-        if (signalStrength >= -70) {
-            return 1
-        }
-        if (signalStrength >= -85) {
-            return 0.64
-        }
-        if (signalStrength >= -100) {
-            return 0.33
-        }
-        return 0
-    }
-    
-    func colorFromHex(rgbValue: Int, alpha: Double? = 1.0) -> Color {
-        // &  binary AND operator to zero out other color values
-        // >>  bitwise right shift operator
-        // Divide by 0xFF because UIColor takes CGFloats between 0.0 and 1.0
-        
-        let red =   CGFloat((rgbValue & 0xFF0000) >> 16) / 0xFF
-        let green = CGFloat((rgbValue & 0x00FF00) >> 8) / 0xFF
-        let blue =  CGFloat(rgbValue & 0x0000FF) / 0xFF
-        let alpha = CGFloat(alpha ?? 1.0)
-        
-        return fixColor(color: UIColor(red: red, green: green, blue: blue, alpha: alpha))
-    }
-    
-    // Fixes the color if it is too dark or too bright depending of the dark/light theme
-    func fixColor(color: UIColor) -> Color {
-        var h = CGFloat(0), s = CGFloat(0), b = CGFloat(0), a = CGFloat(0)
-        color.getHue(&h, saturation: &s, brightness: &b, alpha: &a)
-        b = colorScheme == .dark ? fmax(b, 0.2) : fmin(b, 0.75)
-        return Color(UIColor(hue: h, saturation: s, brightness: b, alpha: a))
-    }
-    
-    func getUpdateIconName() -> String {
-        if #available(iOS 17.0, *) {
-            return "arrow.down.circle.dotted"
-        } else {
-            return "arrow.down.circle"
-        }
+
+    private enum Style {
+        static let selectedOpacity: Double = 1.0
+        static let unselectedOpacity: Double = 0.6
+        static let selectedBorderWidth: CGFloat = 2.0
+        static let unselectedBorderWidth: CGFloat = 0.0
+        static let glowRadius: CGFloat = 5.0
+        static let darkGlowOpacity: Double = 0.6
+        static let lightGlowOpacity: Double = 0.4
     }
 }
 
+extension View {
+    func applyDeviceSelectionStyle(isSelected: Bool, color: Color) -> some View {
+        self.modifier(DeviceSelectionStyle(isSelected: isSelected, color: color))
+    }
+}
+
+
 struct DeviceListItemView_Previews: PreviewProvider {
-    static let device = Device(context: PersistenceController.preview.container.viewContext)
-    
     static var previews: some View {
-        device.tag = UUID()
-        device.name = ""
-        device.address = "192.168.11.101"
-        device.isHidden = false
-        device.isOnline = true
-        device.networkRssi = -80
-        device.color = 6244567779
-        device.brightness = 125
-        device.isRefreshing = true
-        device.isHidden = true
-        
-        
-        return DeviceListItemView()
-            .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-            .environmentObject(device)
+        let device = PreviewData.onlineDevice
+
+        VStack(alignment: .leading) {
+            Text("1st Selected, 2nd unselected")
+            DeviceListItemView(
+                device: device,
+                isSelected: true,
+                onTogglePower: { isOn in
+                    print("Preview: Power toggled to \(isOn)")
+                    device.stateInfo?.state.isOn = isOn
+                },
+                onChangeBrightness: { val in
+                    print("Preview: Brightness changed to \(val)")
+                    device.stateInfo?.state.brightness = Int64(val)
+                }
+            )
+            DeviceListItemView(
+                device: device,
+                onTogglePower: { isOn in
+                    print("Preview: Power toggled to \(isOn)")
+                    device.stateInfo?.state.isOn = isOn
+                },
+                onChangeBrightness: { val in
+                    print("Preview: Brightness changed to \(val)")
+                    device.stateInfo?.state.brightness = Int64(val)
+                }
+            )
+        }
+        .padding()
+        .previewLayout(.sizeThatFits)
     }
 }

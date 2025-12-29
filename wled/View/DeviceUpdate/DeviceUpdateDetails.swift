@@ -4,9 +4,12 @@ import CoreData
 import MarkdownUI
 
 struct DeviceUpdateDetails: View {
+    // TODO: Pass the version to display instead of only showing the latest one
+    // This will allow support for downgrading or chosing a different version
+    // in the future.
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) var dismiss
-    @EnvironmentObject var device: Device
+    @ObservedObject var device: DeviceWithState
     
     @State var showWarningDialog = false
     @State var showInstallingDialog = false
@@ -16,7 +19,7 @@ struct DeviceUpdateDetails: View {
     var body: some View {
         ZStack {
             ScrollView {
-                Markdown(versionViewModel.version?.versionDescription ?? "[Unknown Error]")
+                Markdown(versionViewModel.version?.versionDescription ?? String(localized: "[Unknown Error]"))
                     .padding()
             }
         }
@@ -48,7 +51,7 @@ struct DeviceUpdateDetails: View {
         .navigationTitle("Version \(versionViewModel.version?.tagName ?? "")")
         .fullScreenCover(isPresented: $showInstallingDialog) {
             if let version = versionViewModel.version {
-                DeviceUpdateInstalling(version: version)
+                DeviceUpdateInstalling(device: device, version: version)
                     .background(BackgroundBlurView())
             }
         }
@@ -56,17 +59,20 @@ struct DeviceUpdateDetails: View {
             dismiss()
         }
         .onAppear() {
-            versionViewModel.loadVersion(device.latestUpdateVersionTagAvailable ?? "", context: viewContext)
+            versionViewModel
+                .loadVersion(
+                    device.availableUpdateVersion ?? "",
+                    context: viewContext
+                )
         }
     }
     
     func skipVersion() {
-        device.skipUpdateTag = device.latestUpdateVersionTagAvailable
-        device.latestUpdateVersionTagAvailable = ""
+        device.device.skipUpdateTag = device.availableUpdateVersion
         do {
             try viewContext.save()
         } catch {
-            // Replace this implementation with code to handle the error appropriately.
+            // TODO: Replace this implementation with code to handle the error appropriately.
             // fatalError() causes the application to generate a crash log and terminate. You should not use this function in a shipping application, although it may be useful during development.
             let nsError = error as NSError
             fatalError("Unresolved error \(nsError), \(nsError.userInfo)")
@@ -81,20 +87,11 @@ struct DeviceUpdateDetails: View {
     
 }
 
-struct DeviceUpdateDetails_Previews: PreviewProvider {
-    static let device = Device(context: PersistenceController.preview.container.viewContext)
-    
-    static var previews: some View {
-        device.tag = UUID()
-        device.version = "0.13.0"
-        device.latestUpdateVersionTagAvailable = "v0.14.0"
-        device.isOnline = true
-        
-        
-        return NavigationView{
-            DeviceUpdateDetails()
-                .environment(\.managedObjectContext, PersistenceController.preview.container.viewContext)
-                .environmentObject(device)
-        }
+#Preview {
+    NavigationView {
+        DeviceUpdateDetails(device: PreviewData.deviceWithUpdate)
     }
+    // This line is required to provide the Core Data context to the view
+    .environment(\.managedObjectContext, PreviewData.viewContext)
 }
+
