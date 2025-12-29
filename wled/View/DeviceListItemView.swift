@@ -100,7 +100,7 @@ struct DeviceSelectionStyle: ViewModifier {
 
     func body(content: Content) -> some View {
         content
-            .groupBoxStyle(DeviceGroupBoxStyle(deviceColor: color))
+            .groupBoxStyle(DeviceGroupBoxStyle(deviceColor: backgroundColor))
         // Prevent system from turning text white on selection
             .foregroundStyle(.primary)
         // Apply Tint/Accent for sliders/toggles
@@ -126,7 +126,15 @@ struct DeviceSelectionStyle: ViewModifier {
         return color.opacity(opacity)
     }
 
+    private var backgroundColor: Color {
+        isSelected
+        ? color.opacity(Style.selectedOpacity)
+        : color.opacity(Style.unselectedOpacity)
+    }
+
     private enum Style {
+        static let selectedOpacity: Double = 1.0
+        static let unselectedOpacity: Double = 0.6
         static let selectedBorderWidth: CGFloat = 2.0
         static let unselectedBorderWidth: CGFloat = 0.0
         static let glowRadius: CGFloat = 5.0
