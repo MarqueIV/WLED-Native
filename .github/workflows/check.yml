@@ -1,6 +1,11 @@
 name: Check
 
 on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - dev
   pull_request:
     branches:
       - main
@@ -12,7 +17,7 @@ jobs:
     runs-on: macos-26
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Build and Test
         run: |
@@ -24,10 +29,10 @@ jobs:
 
   lint:
     name: Run Lint
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0 # need history for git diff
 
