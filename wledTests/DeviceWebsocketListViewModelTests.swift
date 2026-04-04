@@ -81,6 +81,9 @@ struct DeviceWebsocketListViewModelTests {
         try context.save()
 
         let viewModel = DeviceWebsocketListViewModel(context: context)
+        // Use a very long delay so the disconnect can never fire during this test,
+        // even on a slow CI runner. We only care that onResume() cancels it.
+        viewModel.backgroundDisconnectDelay = .seconds(60)
         let mockClient = ManualMockWebsocketClient(device: device)
         viewModel.makeClient = { _ in mockClient }
 
@@ -91,11 +94,11 @@ struct DeviceWebsocketListViewModelTests {
 
         // Simulate quick background + resume (app switcher peek)
         viewModel.onPause()
-        try await Task.sleep(for: .milliseconds(500)) // Well under the 2s delay
+        try await Task.sleep(for: .milliseconds(200))
         viewModel.onResume()
 
         // Device should still be connected — disconnect was cancelled
-        try await Task.sleep(for: .seconds(1))
+        try await Task.sleep(for: .milliseconds(500))
         #expect(mockClient.deviceState.websocketStatus == .connected)
         #expect(viewModel.onlineDevices.count == 1)
     }
@@ -105,6 +108,7 @@ struct DeviceWebsocketListViewModelTests {
         try context.save()
 
         let viewModel = DeviceWebsocketListViewModel(context: context)
+        viewModel.backgroundDisconnectDelay = .milliseconds(100)
         let mockClient = ManualMockWebsocketClient(device: device)
         viewModel.makeClient = { _ in mockClient }
 
@@ -115,7 +119,7 @@ struct DeviceWebsocketListViewModelTests {
 
         // Simulate going to background and staying there
         viewModel.onPause()
-        try await Task.sleep(for: .seconds(4)) // Wait well past the 2s delay (generous for CI)
+        try await Task.sleep(for: .milliseconds(500)) // Wait well past the 100ms delay
 
         // Device should now be disconnected
         #expect(mockClient.deviceState.websocketStatus == .disconnected)
