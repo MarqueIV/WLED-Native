@@ -49,6 +49,10 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     private var activeClients: [String: ClientWrapper] = [:]
     private var isPaused = false
     private var backgroundTask: Task<Void, Never>?
+
+    /// Delay before disconnecting websockets after entering background.
+    /// Exposed as `internal` so tests can override with a shorter value.
+    var backgroundDisconnectDelay: Duration = .seconds(2)
     
     /// Amount of time after a device becomes offline before it is considered offline.
     private let offlineGracePeriod: TimeInterval = 60
@@ -265,9 +269,10 @@ class DeviceWebsocketListViewModel: NSObject, ObservableObject, NSFetchedResults
     func onPause() {
         print("[ListVM] onPause: Scheduling disconnect.")
         backgroundTask?.cancel()
+        let delay = backgroundDisconnectDelay
         backgroundTask = Task { @MainActor [weak self] in
             do {
-                try await Task.sleep(for: .seconds(2))
+                try await Task.sleep(for: delay)
             } catch {
                 // Task was cancelled (user came back quickly)
                 return

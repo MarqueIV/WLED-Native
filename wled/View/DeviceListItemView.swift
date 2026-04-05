@@ -26,6 +26,11 @@ struct DeviceListItemView: View {
                 Toggle("Turn On/Off", isOn: isOnBinding)
                     .labelsHidden()
                     .frame(alignment: .trailing)
+                    // On iOS 16, tapping the Toggle also triggers the parent row's .onTapGesture.
+                    // This empty handler "consumes" the SwiftUI tap at the child level,
+                    // while the underlying UISwitch still receives the UIKit event.
+                    // This can be removed once the minimum deployment target is iOS 17+.
+                    .onTapGesture { }
             }
 
             Slider(
